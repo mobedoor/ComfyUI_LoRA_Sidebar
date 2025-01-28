@@ -52,10 +52,10 @@ class LoraSidebar {
         this.modelFilterDropdown = this.createModelFilterDropdown();
         this.currentSearchInput = this.state.searchTerm ? this.state.searchTerm.split(/\s+/) : [];
         this.PREDEFINED_TAGS = [
-            "character", "style", "celebrity", "concept", "clothing", "poses", 
+            "character", "style", "celebrity", "concept", "clothing", "poses",
             "background", "tool", "buildings", "vehicle", "objects", "animal", "assets", "action"
         ];
-        this.CUSTOM_TAGS = app.ui.settings.getSettingValue("LoRA Sidebar.General.customTags", "").split(',').map(tag => tag.trim().toLowerCase());
+        this.CUSTOM_TAGS = (app.ui.settings.getSettingValue("LoRA Sidebar.General.customTags") || "").split(',').map(tag => tag.trim().toLowerCase());
         debug.log("After loading CUSTOM_TAGS:", this.CUSTOM_TAGS);
         this.tagSource = app.ui.settings.getSettingValue("LoRA Sidebar.General.tagSource", "CivitAI");
         debug.log("Tag source:", this.tagSource);
@@ -65,7 +65,7 @@ class LoraSidebar {
         this.loadingOverlay = this.createLoadingOverlay();
         this.lastLoadOffset = 0;
         this.searchCount = 0;
-        
+
         this.element = $el("div.lora-sidebar", {
             draggable: false,
         }, [
@@ -164,10 +164,10 @@ class LoraSidebar {
                 Array.from(element.children).forEach(child => makeNotDraggable(child));
             }
         };
-    
+
         // Start with the sidebar element
         makeNotDraggable(this.element);
-    }    
+    }
 
     createSizeSlider() {
         this.sizeSlider = $el("input.lora-size-slider", {
@@ -189,27 +189,27 @@ class LoraSidebar {
         const dropdown = $el("select.model-filter-dropdown", {
             onchange: (e) => this.handleModelFilter(e.target.value)
         });
-    
+
         filterOptions.forEach(option => {
-            const optionElement = $el("option", { 
-                value: option, 
+            const optionElement = $el("option", {
+                value: option,
                 textContent: option,
                 selected: option === this.state.modelFilter
             });
             dropdown.appendChild(optionElement);
         });
-    
+
         return dropdown;
     }
 
     updateGalleryLayout() {
         const itemWidth = `${this.elementSize}px`;
-    
+
         this.element.querySelectorAll('.lora-item').forEach(item => {
             item.style.width = itemWidth;
             // The height will be automatically set by the aspect-ratio in CSS
         });
-    
+
         // Update the grid-template-columns for all lora-items-container
         this.element.querySelectorAll('.lora-items-container').forEach(container => {
             container.style.gridTemplateColumns = `repeat(auto-fill, minmax(${itemWidth}, 1fr))`;
@@ -234,7 +234,7 @@ class LoraSidebar {
                 }
             })
         ]);
-    
+
         return searchContainer;
     }
 
@@ -274,49 +274,49 @@ class LoraSidebar {
 
     createGalleryContainer() {
         this.galleryContainer = $el("div.lora-gallery-container", {
-            draggable: false,            
+            draggable: false,
         });
         return this.galleryContainer;
     }
 
     handleSearch(searchInput) {
         const newSearchInput = searchInput.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-        
+
         if (JSON.stringify(this.currentSearchInput) !== JSON.stringify(newSearchInput) ||
             searchInput === this.currentSearchInput.join(' ')) {
-            
+
             this.currentSearchInput = newSearchInput;
-            
+
             // Use your existing fast filtering logic
             this.filteredData = this.loraData.filter(lora => {
                 // NSFW filter - always apply if showNSFW is false
                 if (!this.showNSFW && this.isNSFW(lora)) {
                     return false;
                 }
-    
+
                 // Search term filter
                 const matchesSearch = this.currentSearchInput.length === 0 || this.currentSearchInput.every(term => {
                     const nameMatch = lora.name && lora.name.toLowerCase().includes(term);
-                    const tagMatch = Array.isArray(lora.tags) && lora.tags.some(tag => 
+                    const tagMatch = Array.isArray(lora.tags) && lora.tags.some(tag =>
                         tag.toLowerCase().includes(term)
                     );
-                    const trainedWordsMatch = Array.isArray(lora.trained_words) && 
+                    const trainedWordsMatch = Array.isArray(lora.trained_words) &&
                         lora.trained_words.some(word => word.toLowerCase().includes(term));
                     const baseModelMatch = lora.baseModel && lora.baseModel.toLowerCase().includes(term);
                     const subdirMatch = lora.subdir && lora.subdir.toLowerCase().includes(term);
                     const typeMatch = lora.type && lora.type.toLowerCase().includes(term);
-    
-                    return nameMatch || tagMatch || trainedWordsMatch || 
+
+                    return nameMatch || tagMatch || trainedWordsMatch ||
                            baseModelMatch || subdirMatch || typeMatch;
                 });
-    
+
                 // Model filter
-                const matchesModelFilter = this.modelFilter === 'All' || 
+                const matchesModelFilter = this.modelFilter === 'All' ||
                                          this.matchesModelFilter(lora, this.modelFilter);
-    
+
                 return matchesSearch && matchesModelFilter;
             });
-    
+
             // Reset gallery and render filtered results
             this.galleryContainer.innerHTML = '';
             this.renderLoraGallery(0, this.batchSize);
@@ -337,24 +337,24 @@ class LoraSidebar {
                     // Load more from each category until we hit 500
                     for (const category of expandedCategories) {
                         if (this.galleryContainer.querySelectorAll('.lora-item').length >= 500) break;
-                        
+
                         const container = category.querySelector('.lora-items-container');
                         const categoryName = category.getAttribute('data-category');
                         const loadedCount = container.children.length;
 
                         // Get filtered items for this category
-                        const categoryItems = this.filteredData.filter(lora => 
-                            !lora.favorite && 
-                            (!lora.is_new || !this.CatNew) && 
+                        const categoryItems = this.filteredData.filter(lora =>
+                            !lora.favorite &&
+                            (!lora.is_new || !this.CatNew) &&
                             this.getCategoryForLora(lora) === categoryName
                         );
 
                         // Calculate remaining items to load
                         const remainingItems = categoryItems.slice(loadedCount);
-                        
+
                         if (remainingItems.length > 0) {
                             this.createLoraElementsForCategory(container, remainingItems);
-                            
+
                             // Update pending data
                             if (remainingItems.length > container.children.length - loadedCount) {
                                 const stillPending = remainingItems.slice(container.children.length - loadedCount);
@@ -366,7 +366,7 @@ class LoraSidebar {
                     }
                 }
             }
-    
+
             this.state.searchTerm = searchInput;
             this.saveState();
         }
@@ -393,19 +393,19 @@ class LoraSidebar {
         // Create a temporary element
         const temp = document.createElement('div');
         temp.innerHTML = html;
-        
+
         // Remove any script tags
         const scripts = temp.getElementsByTagName('script');
         while (scripts[0]) {
             scripts[0].parentNode.removeChild(scripts[0]);
         }
-        
+
         // Remove any style tags
         const styles = temp.getElementsByTagName('style');
         while (styles[0]) {
             styles[0].parentNode.removeChild(styles[0]);
         }
-        
+
         // Remove any on* attributes (onclick, onmouseover, etc.)
         const all = temp.getElementsByTagName('*');
         for (let i = 0; i < all.length; i++) {
@@ -416,11 +416,11 @@ class LoraSidebar {
                 }
             }
         }
-        
+
         // Return the sanitized HTML
         return temp.innerHTML;
     }
-        
+
     matchesModelFilter(lora, filter) {
         const baseModel = (lora.baseModel || '').toLowerCase();
         switch (filter) {
@@ -443,7 +443,7 @@ class LoraSidebar {
                 return true;
         }
     }
-    
+
     handleModelFilter(filterValue) {
         this.modelFilter = filterValue;
         this.state.modelFilter = filterValue;
@@ -468,7 +468,7 @@ class LoraSidebar {
                     remoteMetadata: data.remote_metadata
                 };
             }
-            
+
             console.error("Error response:", response.status, response.statusText);
 
         } catch (error) {
@@ -521,7 +521,7 @@ class LoraSidebar {
                 }
                 const data = await response.json();
                 const { total_unprocessed_loras, new_loras, moved_loras, missing_loras, local_loras, remote_loras, estimated_time_minutes } = data;
-                
+
                 // Use the estimated_time_minutes directly as it already includes the units
                 estimatedTimeStr = `${estimated_time_minutes}`;
                 unprocessedLoras = `${total_unprocessed_loras}`;
@@ -630,7 +630,7 @@ class LoraSidebar {
         this.progressBar.style.display = 'block';
         const progressBar = this.progressBar.querySelector('progress');
         const progressText = this.progressBar.querySelector('div');
-        
+
         progressBar.value = progress;
         progressText.textContent = `Processing: ${completed}/${total}`;
     }
@@ -660,15 +660,15 @@ class LoraSidebar {
         }, [
             $el("div.spinner-container", [
                 $el("div.spinner"),
-                $el("h2", { 
+                $el("h2", {
                     textContent: "Loading LoRAs...",
                     className: "loading-text"
                 }),
-                $el("p", { 
+                $el("p", {
                     textContent: "This can take some time if you're generating or just processed new LoRAs.",
                     className: "loading-text"
                 }),
-                $el("p", { 
+                $el("p", {
                     textContent: "If it always takes a long time, you should play with the LoRA Loading Batch Size in the sidebar settings.",
                     className: "loading-text"
                 })
@@ -684,26 +684,26 @@ class LoraSidebar {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: lora.id })
             });
-    
+
             if (response.ok) {
                 // Update in-memory data
                 const loraInData = this.loraData.find(l => l.id === lora.id);
                 if (loraInData) {
                     const wasInFavorites = loraInData.favorite;
                     loraInData.favorite = !loraInData.favorite;
-    
+
                     // Update filtered data if it exists
                     const loraInFiltered = this.filteredData.find(l => l.id === lora.id);
                     if (loraInFiltered) {
                         loraInFiltered.favorite = loraInData.favorite;
                     }
-    
+
                     // Get category info update from BE
                     const result = await response.json();
                     if (result.categoryInfo) {
                         this.categoryInfo = result.categoryInfo;
                     }
-    
+
                     // Update just the affected categories
                     const favoritesCategory = this.galleryContainer.querySelector(
                         '.lora-category[data-category="Favorites"]'
@@ -711,14 +711,14 @@ class LoraSidebar {
                     const originalCategory = this.galleryContainer.querySelector(
                         `.lora-category[data-category="${this.getCategoryForLora(lora)}"]`
                     );
-    
+
                     // Update Favorites category
                     if (favoritesCategory) {
                         const favorites = this.filteredData.filter(l => l.favorite);
                         const container = favoritesCategory.querySelector('.lora-items-container');
-                        const isExpanded = container && 
+                        const isExpanded = container &&
                             window.getComputedStyle(container).display !== 'none';
-    
+
                         if (isExpanded) {
                             container.innerHTML = '';
                             this.createLoraElementsForCategory(container, favorites);
@@ -736,35 +736,35 @@ class LoraSidebar {
                             );
                             container.dataset.pendingLorasData = JSON.stringify(pendingItems);
                         }
-    
+
                         // Update count
                         const countDisplay = favoritesCategory.querySelector('.category-count');
                         if (countDisplay) {
                             countDisplay.textContent = `${container.children.length}/${favorites.length}`;
                         }
                     }
-    
+
                     // Update original category if it exists
                     if (originalCategory) {
                         const container = originalCategory.querySelector('.lora-items-container');
                         if (container) {
                             const categoryName = originalCategory.getAttribute('data-category');
-                            const categoryLoras = this.filteredData.filter(l => 
-                                !l.favorite && 
-                                (!l.is_new || !this.CatNew) && 
+                            const categoryLoras = this.filteredData.filter(l =>
+                                !l.favorite &&
+                                (!l.is_new || !this.CatNew) &&
                                 this.getCategoryForLora(l) === this.getCategoryForLora(lora)
                             );
-    
+
                             const isExpanded = window.getComputedStyle(container).display !== 'none';
                             if (isExpanded) {
                                 // Only reload the currently loaded items
                                 const currentCount = container.children.length;
                                 container.innerHTML = '';
                                 this.createLoraElementsForCategory(
-                                    container, 
+                                    container,
                                     categoryLoras.slice(0, currentCount)
                                 );
-    
+
                                 // Update pending data if any
                                 if (categoryLoras.length > currentCount) {
                                     const pendingItems = categoryLoras.slice(currentCount);
@@ -774,7 +774,7 @@ class LoraSidebar {
                                     container.dataset.pendingLorasData = JSON.stringify(pendingItems);
                                 }
                             }
-    
+
                             // Update count
                             // Get the original total from categoryInfo
                             const totalInCategory = this.categoryInfo?.[categoryName]?.total || categoryLoras.length;
@@ -782,19 +782,19 @@ class LoraSidebar {
 
                             const countDisplay = originalCategory.querySelector('.category-count');
                             if (countDisplay) {
-                                countDisplay.textContent = 
+                                countDisplay.textContent =
                                     `${container.children.length}/${totalInCategory}`;
                             }
                         }
                     }
-    
-                    this.showToast("success", "Favorite Updated", 
+
+                    this.showToast("success", "Favorite Updated",
                         `${lora.name} has been ${loraInData.favorite ? 'added to' : 'removed from'} favorites.`);
                 }
             }
         } catch (error) {
             console.error("Error toggling favorite:", error);
-            this.showToast("error", "Update Failed", 
+            this.showToast("error", "Update Failed",
                 `Failed to update favorite status for ${lora.name}.`);
         }
     }
@@ -824,7 +824,7 @@ class LoraSidebar {
                 nsfw_folder: this.nsfwFolder,
                 nsfw_string: this.nsfwString
             });
-    
+
             const response = await api.fetchApi(url);
             if (response.ok) {
                 const data = await response.json();
@@ -846,28 +846,28 @@ class LoraSidebar {
                     if (offset === 0) {
                         this.loraData = data.loras;
                         this.filteredData = this.loraData;
-                        
+
                         // Store category info on initial load
                         if (data.categoryInfo) {
                             this.categoryInfo = data.categoryInfo;
                             debug.log("Updated category info:", this.categoryInfo);
                         }
-    
+
                         // Initial render with proper limit
                         const initialRenderCount = Math.min(500, data.loras.length);
                         this.renderLoraGallery(0, initialRenderCount);
-    
+
                         // Update favorites if provided (first batch only)
                         if (data.favorites) {
                             debug.log("Updated favorites from backend");
                             this.favorites = data.favorites;
                         }
-    
+
                         // Only continue loading if there's more data
                         if (data.hasMore) {
                             let currentOffset = limit;
                             let hasMore = data.hasMore;
-                            
+
                             while (hasMore) {
                                 const nextUrl = `/lora_sidebar/data?` + new URLSearchParams({
                                     offset: currentOffset,
@@ -875,7 +875,7 @@ class LoraSidebar {
                                     sort: sortPreference,
                                     nsfw_folder: this.nsfwFolder
                                 });
-    
+
                                 const nextResponse = await api.fetchApi(nextUrl);
                                 if (nextResponse.ok) {
                                     const nextData = await nextResponse.json();
@@ -896,12 +896,12 @@ class LoraSidebar {
 
                                         // Carefully append new data
                                         this.loraData = [...this.loraData, ...nextData.loras];
-                                        
+
                                         // Update filtered data only if we're not currently searching
                                         if (!this.currentSearchInput.length) {
                                             this.filteredData = this.loraData;
                                         }
-                                        
+
                                         if (nextData.categoryInfo) {
                                             this.categoryInfo = {
                                                 ...this.categoryInfo,
@@ -909,7 +909,7 @@ class LoraSidebar {
                                             };
                                             debug.log("Updated category info:", this.categoryInfo);
                                         }
-                                        
+
                                         currentOffset += limit;
                                         hasMore = nextData.hasMore;
                                     }
@@ -919,13 +919,13 @@ class LoraSidebar {
                     } else {
                         // Handle subsequent batch loads (scrolling)
                         this.loraData = [...this.loraData, ...data.loras];
-                        
+
                         // Only update filtered data if not searching
                         if (!this.currentSearchInput.length) {
                             this.filteredData = this.loraData;
                             this.renderLoraGallery(this.loraData.length - data.loras.length, data.loras.length);
                         }
-                        
+
                         // Update category info if provided
                         if (data.categoryInfo) {
                             this.categoryInfo = {
@@ -935,12 +935,12 @@ class LoraSidebar {
                             debug.log("Updated category info:", this.categoryInfo);
                         }
                     }
-                    
+
                     // Store pagination info
                     this.hasMore = data.hasMore;
                     this.totalCount = data.totalCount;
                     this.favoritesManuallyClosed = false; // Reset on full refresh
-                    
+
                     debug.log(`Loaded ${data.loras.length} LoRAs, total: ${this.loraData.length}, hasMore: ${this.hasMore}`);
                 }
             }
@@ -948,7 +948,7 @@ class LoraSidebar {
             console.error("Error loading LoRA data:", error);
         }
     }
-    
+
     renderLoraGallery(startIndex = 0, count = 500) {
         try {
             // Reduce count to total loras we're dealing with
@@ -959,13 +959,13 @@ class LoraSidebar {
                 count = totalLoras;
                 debug.log("Batch larger than LoRA list, setting size to",count);
             }
-    
+
             if (startIndex === 0) {
                 this.galleryContainer.innerHTML = '';
                 const favorites = this.filteredData.filter(lora => lora.favorite);
                 let remainingItems = Math.min(count, 250 + favorites.length); // TODO change this hard set to something that uses batch size like 10%?
                 debug.log("We've got this many loras to work with",remainingItems);
-    
+
                 // Render Favorites
                 if (favorites.length > 0) {
                     const favoritesCategory = this.createCategoryElement("Favorites", favorites);
@@ -978,14 +978,14 @@ class LoraSidebar {
                         }
                     }
                 }
-    
+
                 // Render New Items
                 if (remainingItems > 0) {
-                    const newItems = this.filteredData.filter(lora => 
+                    const newItems = this.filteredData.filter(lora =>
                         !lora.favorite && lora.is_new && this.CatNew
                     );
                     if (newItems.length > 0) {
-                        const newCategory = this.createCategoryElement("New", 
+                        const newCategory = this.createCategoryElement("New",
                             newItems.slice(0, remainingItems));
                         if (newCategory) {
                             this.galleryContainer.appendChild(newCategory);
@@ -993,16 +993,16 @@ class LoraSidebar {
                         }
                     }
                 }
-    
+
                 // Get remaining items excluding favorites and new
-                const remainingLoras = this.filteredData.filter(lora => 
+                const remainingLoras = this.filteredData.filter(lora =>
                     !lora.favorite && (!lora.is_new || !this.CatNew)
                 );
-    
+
                 // Handle the rest based on sort mode
                 if (this.sortModels === 'None') {
                     // Simple rendering without categories
-                    const allLorasCategory = this.createCategoryElement("All LoRAs", 
+                    const allLorasCategory = this.createCategoryElement("All LoRAs",
                         remainingLoras.slice(0, Math.min(500, remainingItems)));
                     if (allLorasCategory) {
                         this.galleryContainer.appendChild(allLorasCategory);
@@ -1010,11 +1010,11 @@ class LoraSidebar {
                 } else {
                     // Create categories with minimum 1 item if possible
                     let categorizedLoras = new Map();
-    
+
                     // First, categorize all loras
                     remainingLoras.forEach(lora => {
                         if (!this.showNSFW && this.isNSFW(lora)) return;
-    
+
                         let category = 'Unsorted';
                         if (this.sortModels === 'Tags') {
                             const activeTags = this.getActiveTags();
@@ -1025,7 +1025,7 @@ class LoraSidebar {
                         } else if (this.sortModels === 'Subdir') {
                             category = lora.subdir ? lora.subdir.split('\\').pop() : 'Unsorted';
                         }
-    
+
                         if (!categorizedLoras.has(category)) {
                             categorizedLoras.set(category, []);
                         }
@@ -1040,7 +1040,7 @@ class LoraSidebar {
                                 return a[0].localeCompare(b[0]);
                             })
                     );
-    
+
                     // First pass - create all categories with 1 item each
                     for (const [category, loras] of categorizedLoras) {
 
@@ -1104,7 +1104,7 @@ class LoraSidebar {
                             if (itemsToLoad.length > 0) {
                                 this.createLoraElementsForCategory(container, itemsToLoad);
                                 remainingItems -= itemsToLoad.length;
-                                
+
                                 // Update pending data
                                 const newPending = pendingItems.slice(itemsToLoad.length);
                                 if (newPending.length > 0) {
@@ -1127,11 +1127,11 @@ class LoraSidebar {
                         }
                     }
                 }
-    
+
                 this.sortCategories();
                 this.updateGalleryLayout();
                 this.initialRenderComplete = true;
-    
+
             } else {
                 // Handle subsequent batch loads (scrolling)
                 const lorasToRender = this.filteredData.slice(startIndex, startIndex + count);
@@ -1151,7 +1151,7 @@ class LoraSidebar {
                     }
                 });
             }
-    
+
         } catch (error) {
             console.error('Critical error in renderLoraGallery:', error);
         }
@@ -1163,17 +1163,17 @@ class LoraSidebar {
             // Get category names
             const aName = a.getAttribute('data-category');
             const bName = b.getAttribute('data-category');
-    
+
             // Special handling for fixed-position categories
             if (aName === 'Favorites') return -1;  // Favorites always first
             if (bName === 'Favorites') return 1;
             if (aName === 'New') return -1;        // New always second
             if (bName === 'New') return 1;
-    
+
             // All other categories sort alphabetically
             return aName.localeCompare(bName);
         });
-    
+
         // Reappend in sorted order
         categories.forEach(category => this.galleryContainer.appendChild(category));
     }
@@ -1182,7 +1182,7 @@ class LoraSidebar {
         const activeTags = this.getActiveTags();
         let items;
         const NEW_CATEGORY_LIMIT = 100;
-    
+
         if (categoryName === "Favorites") {
             items = this.filteredData.filter(lora => lora.favorite);
         } else if (categoryName === "New") {
@@ -1190,25 +1190,25 @@ class LoraSidebar {
             if (!this.CatNew) {
                 return [];
             }
-    
+
             // Get new items excluding favorites
             let newItems = this.filteredData.filter(lora => lora.is_new && !lora.favorite);
-    
+
             // If we have more than limit items, check if they all have the same date
             if (newItems.length > NEW_CATEGORY_LIMIT) {
                 // Get unique creation times
                 const uniqueDates = new Set(newItems.map(lora => lora.created_time));
-                
+
                 // If all items have the same date (likely initial import)
                 // and we're over the limit, disable the category
                 if (uniqueDates.size === 1) {
                     return [];
                 }
-    
+
                 // Otherwise, just limit to the most recent items
                 newItems = newItems.slice(0, NEW_CATEGORY_LIMIT);
             }
-    
+
             items = newItems;
         } else if (this.sortModels === 'Subdir') {
             items = this.filteredData.filter(lora => {
@@ -1217,31 +1217,31 @@ class LoraSidebar {
             });
         } else if (this.sortModels === 'Tags') {
             if (activeTags.includes(categoryName)) {
-                items = this.filteredData.filter(lora => 
+                items = this.filteredData.filter(lora =>
                     lora.tags && lora.tags.includes(categoryName)
                 );
             } else if (categoryName === 'Unsorted') {
-                items = this.filteredData.filter(lora => 
+                items = this.filteredData.filter(lora =>
                     !lora.tags || !activeTags.some(tag => lora.tags.includes(tag))
                 );
             }
         }
-    
+
         return items || [];
     }
-    
+
 
     setupScrollHandler() {
         debug.log("Setting up scroll handler");
-       
+
         const observer = new MutationObserver(() => {
             const sidebarContentContainer = document.querySelector('.sidebar-content-container');
-                   
+
             if (sidebarContentContainer) {
                 debug.log("Sidebar content container found, attaching scroll handler");
-       
+
                 let isLoading = false; // Track actual load state
-                   
+
                 sidebarContentContainer.addEventListener('scroll', async () => {
                     // Regular processing for normal category modes
                     if (this.sortModels !== 'None') {
@@ -1252,11 +1252,11 @@ class LoraSidebar {
                         }
                         return;
                     }
-    
+
                     // Special case for "All LoRAs" mode - only near bottom
                     if (!isLoading && this.isNearBottom(sidebarContentContainer)) {
                         const currentItemCount = this.galleryContainer.querySelectorAll('.lora-item').length;
-                        
+
                         // Skip if we're trying to load the same offset
                         if (currentItemCount === this.lastOffset) {
                             debug.log("Skipping duplicate load at offset:", this.lastOffset);
@@ -1270,23 +1270,23 @@ class LoraSidebar {
                         isLoading = false;
                     }
                 }, { passive: true });
-       
+
                 observer.disconnect();
             }
         });
-       
+
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
     async loadCategoryBatch(categoryName, loadedCount, isFromMinimize = false) {
         if (this.isLoading) return;
         this.isLoading = true;
-    
+
         try {
             const response = await api.fetchApi(
                 `/lora_sidebar/category/${encodeURIComponent(categoryName)}`
             );
-            
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.category_ids?.length) {
@@ -1316,10 +1316,10 @@ class LoraSidebar {
                                 const src = img.src;
                                 const encodedFilename = src.split('/').pop();
                                 const filename = decodeURIComponent(encodedFilename);
-                        
+
                                 // Only compare against the IDs in this category
-                                return data.category_ids.find(id => 
-                                    filename === id || 
+                                return data.category_ids.find(id =>
+                                    filename === id ||
                                     encodedFilename === id
                                 );
                             })
@@ -1329,7 +1329,7 @@ class LoraSidebar {
                             debug.log("Found existing IDs:", existingIds);
 
                             // Filter out already loaded ids from the full set
-                            const validIds = data.category_ids.filter(id => 
+                            const validIds = data.category_ids.filter(id =>
                                 !existingIds.includes(id)
                                 // && this.filteredData.some(lora => lora.id === id) - can remove?
                             );
@@ -1337,7 +1337,7 @@ class LoraSidebar {
                             /*
                              // respect search
                             const ids = this.currentSearchInput.length > 0
-                            ? data.category_ids.filter(id => 
+                            ? data.category_ids.filter(id =>
                                 this.filteredData.some(lora => lora.id === id))
                             : data.category_ids; */
 
@@ -1348,15 +1348,15 @@ class LoraSidebar {
                                 const firstIdIndex = validIds.indexOf(data.category_ids[0]);
                                 validIds.splice(firstIdIndex, 1);
                             }
-                            
-                            // const remainingIds = (validIds.length === data.category_ids.length && loadedCount === 1) 
-                            //? validIds.slice(loadedCount) 
+
+                            // const remainingIds = (validIds.length === data.category_ids.length && loadedCount === 1)
+                            //? validIds.slice(loadedCount)
                             //: validIds;
                             const remainingIds = validIds
                             debug.log("Category:", category, "Remaining IDs:", remainingIds);
 
                             // If from minimize, limit how many we load
-                            const idsToLoad = isFromMinimize 
+                            const idsToLoad = isFromMinimize
                             ? remainingIds.slice(0, 250 - container.children.length)
                             : remainingIds;
 
@@ -1364,7 +1364,7 @@ class LoraSidebar {
                                 .map(id => this.filteredData.find(lora => lora.id === id))
                                 .filter(Boolean)
                                 .filter(lora => this.showNSFW || !this.isNSFW(lora));
-    
+
                             this.createLoraElementsForCategory(container, remainingLoras);
 
                             // Update count
@@ -1383,23 +1383,23 @@ class LoraSidebar {
             this.isLoading = false;
         }
     }
-    
-    handleScrollStart() {   
+
+    handleScrollStart() {
         if (this.isLoading) return;
-    
+
         const sidebarContentContainer = document.querySelector('.sidebar-content-container');
-        
+
         if (this.currentSearchInput.length > 0) {
             debug.log("Scrolling during search:", this.currentSearchInput);
         }
-        
+
         // Do the initial calculations
         const containerRect = sidebarContentContainer.getBoundingClientRect();
         const buffer = containerRect.height * 0.5;
-        
+
         // Find categories that need processing
         const categories = Array.from(this.galleryContainer.querySelectorAll('.lora-category'));
-        
+
         // Keep your debug logging
         categories.forEach(category => {
             const container = category.querySelector('.lora-items-container');
@@ -1408,14 +1408,14 @@ class LoraSidebar {
                 debug.log(`Category ${categoryName}:`, {
                     loadedItems: container.children.length,
                     totalItems: parseInt(container.dataset.totalItems || 0),
-                    pendingData: container.dataset.pendingLorasData ? 
+                    pendingData: container.dataset.pendingLorasData ?
                         JSON.parse(container.dataset.pendingLorasData).length : 0,
-                    filtered: this.currentSearchInput.length > 0 ? 
+                    filtered: this.currentSearchInput.length > 0 ?
                         this.filteredData.filter(l => this.getCategoryForLora(l) === categoryName).length : 'n/a'
                 });
             }
         });
-    
+
         const approachingCategories = categories.filter(category => {
             // Skip "All LoRAs" category when using None sorting
             if (this.sortModels === 'None' && category.getAttribute('data-category') === "All LoRAs") {
@@ -1426,26 +1426,26 @@ class LoraSidebar {
             if (!container || window.getComputedStyle(container).display === 'none') {
                 return false;
             }
-            
+
             const rect = category.getBoundingClientRect();
             const currentCount = container.children.length;
             const totalItems = parseInt(container.dataset.totalItems || 0);
 
-            const needsLoading = (currentCount < 500 && (container.dataset.pendingLorasData || 
-                currentCount < totalItems)) || 
-                (currentCount >= 500 && totalItems > currentCount && 
+            const needsLoading = (currentCount < 500 && (container.dataset.pendingLorasData ||
+                currentCount < totalItems)) ||
+                (currentCount >= 500 && totalItems > currentCount &&
                 this.isNearCategoryEnd(category));
-            
-            return needsLoading && 
-                   rect.top <= containerRect.bottom + buffer && 
+
+            return needsLoading &&
+                   rect.top <= containerRect.bottom + buffer &&
                    rect.bottom >= containerRect.top - buffer;
         });
-    
+
         if (approachingCategories.length > 0) {
             // Process categories in chunks
             this.processCategories(approachingCategories, 0, 100); // Process 100 items at a time
         }
-    
+
         // Handle non-categorized view
         if (this.sortModels === 'None' && this.isNearBottom(sidebarContentContainer)) {
             let currentItemCount = this.galleryContainer.querySelectorAll('.lora-item').length;
@@ -1454,7 +1454,7 @@ class LoraSidebar {
             // Check for minimized favorites and adjust count using actual favorites data
             const favoriteCount = this.filteredData.filter(lora => lora.favorite).length;
             const favoritesCategory = this.galleryContainer.querySelector('.lora-category[data-category="Favorites"]');
-            const favoritesMinimized = favoritesCategory && 
+            const favoritesMinimized = favoritesCategory &&
                 window.getComputedStyle(favoritesCategory.querySelector('.lora-items-container')).display === 'none';
 
             // Use filteredData.length as total during search
@@ -1463,7 +1463,7 @@ class LoraSidebar {
             if (favoritesMinimized) {
                 effectiveTotal -= favoriteCount;
             }
-            
+
             debug.log("All LoRAs scroll check:", {
                 currentItemCount,
                 effectiveTotal,
@@ -1471,7 +1471,7 @@ class LoraSidebar {
                 isFiltered: this.currentSearchInput.length > 0,
                 isProcessing: this.isLoading
             });
-        
+
             if (currentItemCount < effectiveTotal && !this.isLoading) {
                 this.isLoading = true;
                 if (this.currentSearchInput.length > 0) {
@@ -1493,19 +1493,19 @@ class LoraSidebar {
     // process categories in chunks
     processCategories(categories, startIndex, chunkSize) {
         if (startIndex >= categories.length) return;
-        
+
         const category = categories[startIndex];
         const container = category.querySelector('.lora-items-container');
         const categoryName = category.getAttribute('data-category');
-        
+
         let itemsProcessed = 0;
-        const pendingItems = container.dataset.pendingLorasData ? 
+        const pendingItems = container.dataset.pendingLorasData ?
             JSON.parse(container.dataset.pendingLorasData) : [];
-        
+
         if (pendingItems.length > 0) {
             const itemsToLoad = pendingItems.slice(0, chunkSize);
             this.createLoraElementsForCategory(container, itemsToLoad);
-            
+
             if (itemsToLoad.length < pendingItems.length) {
                 const remainingItems = pendingItems.slice(itemsToLoad.length);
                 container.dataset.pendingLorasData = JSON.stringify(remainingItems);
@@ -1519,7 +1519,7 @@ class LoraSidebar {
                 const total = countDisplay.textContent.split('/')[1];
                 countDisplay.textContent = `${container.children.length}/${total}`;
             }
-            
+
             itemsProcessed = itemsToLoad.length;
         }
 
@@ -1534,31 +1534,31 @@ class LoraSidebar {
     isNearCategoryEnd(category) {
         const container = category.querySelector('.lora-items-container');
         if (!container) return false;
-    
+
         const lastItem = container.lastElementChild;
         if (!lastItem) return false;
-    
+
         const viewportHeight = window.innerHeight;
         const lastItemRect = lastItem.getBoundingClientRect();
-        
+
         // Check if last item is visible in viewport with a small buffer
         const buffer = 200; // pixels
         return lastItemRect.top <= viewportHeight + buffer && lastItemRect.bottom >= -buffer;
     }
-    
+
     isNearBottom(container) {
         const scrollPosition = container.scrollTop + container.clientHeight;
         const totalHeight = container.scrollHeight;
         const scrollThreshold = 0.9; // 90% of the way down
         return scrollPosition / totalHeight > scrollThreshold;
     }
-    
+
     createCategoryElement(categoryName, loras, appendToExisting = false) {
         let categoryContainer;
-        
+
         if (appendToExisting) {
             categoryContainer = this.galleryContainer.querySelector(`.lora-category[data-category="${categoryName}"]`);
-            
+
             if (!categoryContainer) {
                 categoryContainer = $el("div.lora-category", {
                     draggable: false
@@ -1571,15 +1571,15 @@ class LoraSidebar {
             });
             categoryContainer.setAttribute('data-category', categoryName);
         }
-    
+
         let header = categoryContainer.querySelector('.category-header');
         if (!header) {
             // Get expanded state based on if it's Favorites
             const isExpanded = categoryName === "Favorites" && this.FavOpen ? true :
-                this.state.categoryStates[categoryName] !== undefined ? 
-                this.state.categoryStates[categoryName] : 
+                this.state.categoryStates[categoryName] !== undefined ?
+                this.state.categoryStates[categoryName] :
                 this.defaultCatState;
-            
+
             // Get counts from category info
             let totalCount = this.categoryInfo?.[categoryName]?.total || loras.length;
             let loadedCount = loras.length;
@@ -1591,7 +1591,7 @@ class LoraSidebar {
                 totalFromInfo: this.categoryInfo?.[categoryName]?.total,
                 totalCount: totalCount,
             });
-            
+
             header = $el("div.category-header", {
                 draggable: false
             }, [
@@ -1603,27 +1603,27 @@ class LoraSidebar {
                 ]),
                 $el("span.category-toggle", {}, [isExpanded ? "▼" : "▶"])
             ]);
-            
+
             header.addEventListener('click', () => this.toggleCategory(categoryName));
             categoryContainer.appendChild(header);
         }
-    
+
         let lorasContainer = categoryContainer.querySelector('.lora-items-container');
         if (!lorasContainer) {
             lorasContainer = $el("div.lora-items-container", {
                 draggable: false
             });
-    
-            const isExpanded = categoryName === "Favorites" && this.FavOpen ? true : 
-                this.state.categoryStates[categoryName] !== undefined ? 
-                this.state.categoryStates[categoryName] : 
+
+            const isExpanded = categoryName === "Favorites" && this.FavOpen ? true :
+                this.state.categoryStates[categoryName] !== undefined ?
+                this.state.categoryStates[categoryName] :
                 this.defaultCatState;
-            
+
             lorasContainer.style.display = isExpanded ? 'grid' : 'none';
-            
+
             // Store category info
             lorasContainer.dataset.totalItems = this.categoryInfo?.[categoryName]?.total || loras.length;
-            
+
             // Only create lora elements if expanded, otherwise store for later
             if (!isExpanded) {
                 // Special case: Always create the first item
@@ -1635,28 +1635,28 @@ class LoraSidebar {
             } else {
                 this.createLoraElementsForCategory(lorasContainer, loras);
             }
-            
+
             categoryContainer.appendChild(lorasContainer);
         } else if (appendToExisting) {
             const isExpanded = window.getComputedStyle(lorasContainer).display !== 'none';
             if (isExpanded) {
                 this.createLoraElementsForCategory(lorasContainer, loras);
                 // Update loaded count
-                lorasContainer.dataset.loadedItems = 
+                lorasContainer.dataset.loadedItems =
                     parseInt(lorasContainer.dataset.loadedItems || 0) + loras.length;
             } else {
                 // Update pending loras data
                 const pendingLoras = JSON.parse(lorasContainer.dataset.pendingLoras || '[]');
                 const pendingLorasData = JSON.parse(lorasContainer.dataset.pendingLorasData || '[]');
-                
+
                 pendingLoras.push(...loras.map(lora => lora.id));
                 pendingLorasData.push(...loras);
-                
+
                 lorasContainer.dataset.pendingLoras = JSON.stringify(pendingLoras);
                 lorasContainer.dataset.pendingLorasData = JSON.stringify(pendingLorasData);
             }
         }
-    
+
         return categoryContainer;
     }
 
@@ -1666,9 +1666,9 @@ class LoraSidebar {
 /*        const categoryElement = container.closest('.lora-category');
           const categoryName = categoryElement?.getAttribute('data-category');
           const catName = "jarfu"
-        
+
         if (categoryName === catName) {
-            debug.log("Creating lora elements for test category:", 
+            debug.log("Creating lora elements for test category:",
                 loras.map(l => ({
                     id: l.id,
                     name: l.name,
@@ -1683,7 +1683,7 @@ class LoraSidebar {
         const existingIds = Array.from(container.querySelectorAll('.lora-item'))
             .map(item => item.querySelector('[draggable="true"]')?.dataset?.loraId)
             .filter(Boolean);
-        
+
         loras.forEach(lora => {
             if (existingIds.includes(lora.id)) return;
 
@@ -1698,14 +1698,14 @@ class LoraSidebar {
                     caller: new Error().stack
                 });
             } */
-            
+
             if (loraElement) {
                 container.appendChild(loraElement);
             }
         });
         this.updateGalleryLayout();
     }
-    
+
     async toggleCategory(categoryName) {
 
         // hack for a hack of a hack, TODO CLEAN THIS UP OMG
@@ -1716,12 +1716,12 @@ class LoraSidebar {
             if (category) {
                 const container = category.querySelector('.lora-items-container');
                 if (container) {
-                    const categoryLoras = this.filteredData.filter(lora => 
-                        !lora.favorite && 
-                        (!lora.is_new || !this.CatNew) && 
+                    const categoryLoras = this.filteredData.filter(lora =>
+                        !lora.favorite &&
+                        (!lora.is_new || !this.CatNew) &&
                         this.getCategoryForLora(lora) === categoryName
                     );
-                    
+
                     // If we have exactly 1 filtered result and pending data, clear pending
                     if (categoryLoras.length === 1 && container.dataset.pendingLorasData) {
                         delete container.dataset.pendingLorasData;
@@ -1735,19 +1735,19 @@ class LoraSidebar {
             `.lora-category[data-category="${categoryName}"]`
         );
         if (!category) return;
-    
+
         const content = category.querySelector('.lora-items-container');
         const toggle = category.querySelector('.category-toggle');
-        
+
         if (!content || !toggle) return;
-    
+
         const isVisible = window.getComputedStyle(content).display !== 'none';
 
         // Track if Favorites was manually closed
         if (categoryName === "Favorites") {
             this.FavOpen = !isVisible;
         }
-        
+
         if (isVisible) {
             content.style.display = 'none';
             toggle.textContent = '▶';
@@ -1755,43 +1755,43 @@ class LoraSidebar {
 
             // Skip preload logic if this is the "All LoRAs" category
             if (categoryName === "All LoRAs") return;
-        
+
             // When minimizing, check next categories
             const categories = Array.from(this.galleryContainer.querySelectorAll('.lora-category'));
             const currentIndex = categories.findIndex(cat => cat === category);
             let remainingBudget = 250; // Load up to 250 items
             let checkedCount = 0;
-        
+
             // Start from next category
             for (let i = currentIndex + 1; i < categories.length && checkedCount < 3; i++) {
                 const nextCat = categories[i];
                 const nextContainer = nextCat.querySelector('.lora-items-container');
-        
+
                 // Check if this category is already well-loaded
                 if (nextContainer && nextContainer.children.length >= 200) {
                     break; // Stop loading if we hit a category with plenty of items
                 }
-                
+
                 // Only process if category is expanded and has pending items
-                if (nextContainer && 
-                    window.getComputedStyle(nextContainer).display !== 'none' && 
+                if (nextContainer &&
+                    window.getComputedStyle(nextContainer).display !== 'none' &&
                     nextContainer.dataset.pendingLorasData) {
-                    
+
                     checkedCount++;
                     const nextCategoryName = nextCat.getAttribute('data-category');
                     const loadedCount = nextContainer.children.length;
                     const pendingItems = JSON.parse(nextContainer.dataset.pendingLorasData);
-                    
+
                     // Calculate how many items we can load with remaining budget
                     const itemsToLoad = Math.min(remainingBudget, pendingItems.length);
-                    
+
                     if (itemsToLoad > 0) {
                         await this.loadCategoryBatch(nextCategoryName, loadedCount, true);
-                        
+
                         // Update pending data
                         const newLoadedCount = nextContainer.children.length;
                         const itemsLoaded = newLoadedCount - loadedCount;
-                        
+
                         if (itemsLoaded > 0) {
                             // Update pending data to remove loaded items
                             const remainingPendingItems = pendingItems.slice(itemsLoaded);
@@ -1800,7 +1800,7 @@ class LoraSidebar {
                             } else {
                                 delete nextContainer.dataset.pendingLorasData;
                             }
-                            
+
                             remainingBudget -= itemsLoaded;
                             if (remainingBudget <= 0) break;
                         }
@@ -1811,13 +1811,13 @@ class LoraSidebar {
             content.style.display = 'grid';
             toggle.textContent = '▼';
             this.state.categoryStates[categoryName] = true;
-        
+
             if (content.dataset.pendingLorasData) {
                 const pendingItems = JSON.parse(content.dataset.pendingLorasData);
                 const loadedCount = content.children.length;
                 const toLoad = pendingItems.slice(0, Math.max(0, 500 - loadedCount));
                 this.createLoraElementsForCategory(content, toLoad);
-                
+
                 // Update pending data if there are more items
                 const remainingItems = pendingItems.slice(Math.max(0, 500 - loadedCount));
                 if (remainingItems.length > 0) {
@@ -1827,17 +1827,17 @@ class LoraSidebar {
                 }
             } else if (categoryName === "All LoRAs") {
                 const currentCount = content.children.length;
-                const remainingLoras = this.filteredData.filter(lora => 
+                const remainingLoras = this.filteredData.filter(lora =>
                     !lora.favorite && (!lora.is_new || !this.CatNew)
                 );
-        
+
                 // Only load up to 500 items initially
                 const initialLoadCount = Math.min(500 - currentCount, remainingLoras.length - currentCount);
                 if (initialLoadCount > 0) {
                     const lorasToAdd = remainingLoras.slice(currentCount, currentCount + initialLoadCount);
                     this.createLoraElementsForCategory(content, lorasToAdd);
                 }
-        
+
                 // Store remaining items as pending if there are more
                 if (remainingLoras.length > content.children.length) {
                     content.dataset.pendingLorasData = JSON.stringify(
@@ -1845,13 +1845,13 @@ class LoraSidebar {
                     );
                 }
             }
-        
+
             const loadedCount = content.children.length;
             debug.log("Toggle expand - current children count:", loadedCount);
             debug.log("Current children:", content.children);
             const totalCount = this.categoryInfo?.[categoryName]?.total || loras.length;
             content.dataset.totalItems = totalCount.toString();
-            
+
             if (loadedCount < 500 && loadedCount < totalCount) {
                 await this.loadCategoryBatch(categoryName, loadedCount);
             }
@@ -1862,7 +1862,7 @@ class LoraSidebar {
                 countDisplay.textContent = `${content.children.length}/${totalCount}`;
             }
         }
-    
+
         this.saveState();
         this.updateGalleryLayout();
     }
@@ -1886,10 +1886,10 @@ class LoraSidebar {
                 const previewUrl = forceRefresh
                 ? `/lora_sidebar/preview/${encodeURIComponent(lora.id)}?cb=${Date.now()}`
                 : `/lora_sidebar/preview/${encodeURIComponent(lora.id)}`;
-                
+
                 let isVideo = false;
                 let previewElement;
-                
+
                 const createPreviewElement = (tryVideo = false) => {
                     isVideo = tryVideo;
                     const elementType = isVideo ? "video" : "img";
@@ -1942,9 +1942,9 @@ class LoraSidebar {
                     });
                     return element;
                 };
-            
+
                 previewElement = createPreviewElement();
-            
+
                 const overlay = $el("div.lora-overlay", {
                     draggable: true,
                     ondragstart: (e) => {
@@ -1954,7 +1954,7 @@ class LoraSidebar {
                             id: lora.id
                         });
 
-                        
+
                         // Debug logs for element finding
                         const loraItem = e.target.parentElement;
                         debug.log("LoRA Item found:", loraItem);
@@ -1980,23 +1980,23 @@ class LoraSidebar {
                         this.handleDragStart(e);
                     }
                 });
-            
+
                 const buttonContainer = $el("div.lora-buttons", [
                     this.createButton("📋", "Copy", () => this.copyTrainedWords(lora)),
                     this.createButton("🔄", "Refresh", () => this.refreshLora(lora)),
                     this.createButton(lora.favorite ? "★" : "☆", "Favorite", () => this.toggleFavorite(lora)),
                     this.createButton("ℹ️", "Info", (e) => this.showLoraInfo(lora, e.target)),
                 ]);
-            
+
                 const fontSize = this.getFontSizeBasedOnLength(lora.name);
-            
+
                 const titleContainer = $el("div.lora-title", [
-                    $el("h4", { 
+                    $el("h4", {
                         textContent: lora.name,
                         style: { fontSize: fontSize }
                     })
                 ]);
-            
+
                 overlay.appendChild(buttonContainer);
                 overlay.appendChild(titleContainer);
 
@@ -2007,7 +2007,7 @@ class LoraSidebar {
                     });
                     container.appendChild(nsfwLabel);
                 }
-            
+
                 // Add hover events to the overlay for video control
                 overlay.addEventListener('mouseenter', () => {
                     if (isVideo && previewElement instanceof HTMLVideoElement) {
@@ -2017,24 +2017,24 @@ class LoraSidebar {
                         });
                     }
                 });
-                
+
                 overlay.addEventListener('mouseleave', () => {
                     if (isVideo && previewElement instanceof HTMLVideoElement) {
                         previewElement.pause();
                         previewElement.currentTime = 0;
                     }
                 });
-            
+
                 container.appendChild(previewElement);
                 container.appendChild(overlay);
-            
+
                 return container;
             } catch (error) {
                 console.error('Failed to create LoRA element:', lora?.name || 'unknown', error);
                 return null;
             }
     }
-    
+
     createButton(icon, tooltip, onClick) {
         return $el("button", {
             textContent: icon,
@@ -2072,7 +2072,7 @@ class LoraSidebar {
             });
             return;
         }
-    
+
         try {
             // First, call /refresh/{lora_id} to get versionId if it doesn't exist
             let versionId = lora.versionId;
@@ -2081,7 +2081,7 @@ class LoraSidebar {
                 const idResponse = await api.fetchApi(`/lora_sidebar/refresh/${lora.id}`, {
                     method: 'POST'
                 });
-    
+
                 if (!idResponse.ok) {
                     // Check local_metadata flag to determine if this is a custom LoRA
                     if (lora.local_metadata) {
@@ -2091,7 +2091,7 @@ class LoraSidebar {
                         throw new Error(`Failed to perform hash lookup for LoRA: ${lora.name}, model probably removed.`);
                     }
                 }
-    
+
                 const idResult = await idResponse.json();
                 if (idResult.status === 'success' && idResult.data && idResult.data.versionId) {
                     versionId = idResult.data.versionId;
@@ -2100,13 +2100,13 @@ class LoraSidebar {
                     throw new Error(`Missing or malformed data in API response for LoRA: ${lora.name}`);
                 }
             }
-    
+
             // Now that we have the versionId, proceed to refresh with /refresh/{version_id}
             debug.log(`Refreshing LoRA with version ID: ${versionId}`);
             debug.log("Looking for LoRA:", {
                 searchVersionId: versionId,
                 searchId: lora.id,
-                matchingLoras: this.loraData.filter(l => 
+                matchingLoras: this.loraData.filter(l =>
                     l.versionId === versionId || l.id === lora.id
                 ).map(l => ({
                     id: l.id,
@@ -2115,7 +2115,7 @@ class LoraSidebar {
                 })),
                 // Add this to see what we actually have
                 allLoras: this.loraData.map(l => ({
-                    id: l.id, 
+                    id: l.id,
                     versionId: l.versionId,
                     name: l.name
                 }))
@@ -2123,14 +2123,14 @@ class LoraSidebar {
             const response = await api.fetchApi(`/lora_sidebar/refresh/${versionId}`, {
                 method: 'POST'
             });
-    
+
             if (!response.ok) {
                 throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
             }
-    
+
             const result = await response.json();
             debug.log("Refresh Result:", result);
-    
+
             if (result.status === 'success') {
                 if (result.data) {
                     debug.log("Updated LoRA Data:", result.data);
@@ -2177,7 +2177,7 @@ class LoraSidebar {
             });
         }
     }
-    
+
 
     setupCanvasDropHandling() {
         const canvas = app.canvas.canvas;
@@ -2188,7 +2188,7 @@ class LoraSidebar {
         canvas.removeEventListener('dragstart', this.handleDragStart);
         canvas.removeEventListener('drop', this.handleDrop);
         canvas.removeEventListener('dragover', this.handleDragOver);
-    
+
         // Make this available to other methods
         this.handleDragStart = (e) => {
             if (e.dataTransfer.types.includes('application/json')) {
@@ -2197,7 +2197,7 @@ class LoraSidebar {
                 debug.log("Drag started, cached data");
             }
         };
-    
+
         this.handleDrop = (e) => {
             debug.log("Drop handler called from:", e.target);
             // First, try to get the drag data
@@ -2240,7 +2240,7 @@ class LoraSidebar {
                     return;
                 }
             }
-    
+
             // Early check to ignore non-comfy-lora objects
             try {
                 const dragData = JSON.parse(data);
@@ -2252,14 +2252,14 @@ class LoraSidebar {
                 debug.log("Error parsing drop data, ignoring.", error);
                 return;  // Ignore and allow default behavior
             }
-    
+
             // If we reach here, it's a "comfy-lora" object
             debug.log("Comfy-lora object dropped, processing.");
-    
+
             //const canvasRect = canvas.getBoundingClientRect();
             //const dropX = (e.clientX - canvasRect.left) / app.canvas.ds.scale - app.canvas.ds.offset[0];
             //const dropY = (e.clientY - canvasRect.top) / app.canvas.ds.scale - app.canvas.ds.offset[1];
-    
+
             try {
                 const dragData = JSON.parse(data);
                 if (dragData.type === "comfy-lora") {
@@ -2271,7 +2271,7 @@ class LoraSidebar {
 
                     const fullPath = loraData.path || "";
                     const filename = fullPath.substring(fullPath.lastIndexOf('\\') + 1);
-    
+
                     const nodeData = {
                         name: loraData.name,
                         reco_weight: loraData.reco_weight,
@@ -2281,34 +2281,34 @@ class LoraSidebar {
                     };
 
                     debug.log(`Set nodedata name to`, nodeData.filename);
-    
+
                     let attempts = 0;
                     const maxAttempts = 3;
-                    
+
                     const tryCreateNode = () => {
                         attempts++;
                         debug.log(`Attempt ${attempts} to create/update node`);
-                    
+
                         try {
                             const node = app.graph.getNodeOnPos(dropX, dropY);
-                    
+
                             if (node) {
                                 if (node.type === "LoraLoader" || node.type === "Power Lora Loader (rgthree)") {
                                     this.updateLoraNode(node, loraData);
                                     debug.log("Successfully updated node");
                                 } else if (nodeData.trainedWords?.length > 0) {
                                     // Check if node has any text widgets
-                                    const textWidget = node.widgets?.find(w => 
+                                    const textWidget = node.widgets?.find(w =>
                                         w.name === "text" ||
                                         w.name === "string" ||
                                         w.name === "prompt"
                                     );
-                    
+
                                     if (textWidget) {
                                         const currentText = textWidget.value || "";
                                         let newText = currentText;
                                         let trainedWords = nodeData.trainedWords[0];
-                    
+
                                         // If a1111Style is enabled, prefix with LoRA syntax
                                         if (this.a1111Style) {
                                             const loraPath = nodeData.path ? `${nodeData.path}/` : '';
@@ -2317,7 +2317,7 @@ class LoraSidebar {
                                             const weightStr = weight.toString().includes('.') ? weight.toFixed(2) : weight;
                                             trainedWords = `<lora:${loraPart}:${weightStr}>, ${trainedWords}`;
                                         }
-                    
+
                                         if (currentText.length > 0) {
                                             if (currentText.endsWith(", ")) {
                                                 newText = currentText + trainedWords;
@@ -2329,7 +2329,7 @@ class LoraSidebar {
                                         } else {
                                             newText = trainedWords;
                                         }
-                    
+
                                         textWidget.value = newText;
                                         node.setDirtyCanvas(true, true);
                                         debug.log("Successfully added trigger word to text widget");
@@ -2339,7 +2339,7 @@ class LoraSidebar {
                                 this.createLoraNode(nodeData, dropX, dropY);
                                 debug.log("Successfully created node");
                             }
-                    
+
                             app.graph.setDirtyCanvas(true, true);
                         } catch (err) {
                             debug.log(`Attempt ${attempts} failed:`, err);
@@ -2348,7 +2348,7 @@ class LoraSidebar {
                             }
                         }
                     };
-                    
+
                     tryCreateNode();
                 }
             } catch (error) {
@@ -2358,23 +2358,23 @@ class LoraSidebar {
                 isDragging = false;
             }
         };
-    
+
         canvas.addEventListener('dragover', (e) => {
             if (e.dataTransfer.types.includes('application/json')) {
                 e.preventDefault();  // Enable drop events to fire
             }
         }, { passive: false });
-    
+
         canvas.addEventListener('drop', this.handleDrop);
         canvas.addEventListener('dragenter', (e) => e.preventDefault());
         canvas.addEventListener('dragleave', (e) => e.preventDefault());
-    
+
         document.addEventListener('drop', (e) => {
             if (isDragging) {
                 this.handleDrop(e);
             }
         });
-    
+
         document.addEventListener('dragend', (e) => {
             if (isDragging) {
                 debug.log("Dragend caught with active drag");
@@ -2382,142 +2382,151 @@ class LoraSidebar {
             }
         });
     }
-    
-    
-    createLoraNode(loraData, x, y) {
-        if (this.UseRG3) {
-            // Create Power Lora Loader node
-            const node = LiteGraph.createNode("Power Lora Loader (rgthree)");
-            node.pos = [x, y];
-            
-            // Add the node to the graph (this needs to happen before we add widgets)
-            app.graph.add(node);
-            
-            // Use our existing code to add the lora to the new node
-            const widget = node.addNewLoraWidget();
-            
-            const weight = loraData.reco_weight ?? 1;
-            const loraPath = `${loraData.path}${loraData.path ? '\\' : ''}${loraData.filename}`;
-            
-            widget.value = {
-                on: true,
-                lora: loraPath,
-                strength: weight,
-                strengthTwo: null
-            };
-    
-            widget.loraInfo = {
-                file: loraData.filename,
-                path: loraPath,
-                images: []
-            };
-    
-            // Handle node resizing
-            const computed = node.computeSize();
-            const tempHeight = node._tempHeight ?? 15;
-            node.size[1] = Math.max(tempHeight, computed[1]);
-            
-            node.setDirtyCanvas(true, true);
-        } else {
-            // Original LoraLoader code
-            const node = LiteGraph.createNode("LoraLoader");
-            node.pos = [x, y];
-            
-            // Set node title
-            node.title = `Lora - ${loraData.name}`;
-            
-            // Get recommended weight, default to 1 if not present
-            const weight = loraData.reco_weight ?? 1;
 
-            debug.log("Set filename to", loraData.filename);
 
-            // Set widget values
-            for (const widget of node.widgets) {
-                if (widget.name === "lora_name") {
-                    widget.value = `${loraData.path}${loraData.path ? '\\' : ''}${loraData.filename}`;
-                } else if (widget.name === "strength_model") {
-                    widget.value = weight;
-                } else if (widget.name === "strength_clip") {
-                    widget.value = weight;
-                }
-            }
+  loraPathCalc(loraData) {
+    return `${loraData.path}${loraData.path ? "/" : ""}${loraData.filename
+      .split("/")
+      .pop()}`;
+  }
 
-            debug.log("Set filename to", loraData.filename);
-            
-            // Add the node to the graph
-            app.graph.add(node);
+  loraPathCalcUpdate(loraData) {
+    debug.log("loraPathCalcUpdate", loraData);
+    return `${loraData.subdir}/${loraData.filename}`;
+  }
+
+  createLoraNode(loraData, x, y) {
+    if (this.UseRG3) {
+      // Create Power Lora Loader node
+      const node = LiteGraph.createNode("Power Lora Loader (rgthree)");
+      node.pos = [x, y];
+
+      // Add the node to the graph (this needs to happen before we add widgets)
+      app.graph.add(node);
+
+      // Use our existing code to add the lora to the new node
+      const widget = node.addNewLoraWidget();
+
+      const weight = loraData.reco_weight ?? 1;
+      const loraPath = this.loraPathCalc(loraData);
+
+      widget.value = {
+        on: true,
+        lora: loraPath,
+        strength: weight,
+        strengthTwo: null,
+      };
+
+      widget.loraInfo = {
+        file: loraData.filename,
+        path: loraPath,
+        images: [],
+      };
+
+      // Handle node resizing
+      const computed = node.computeSize();
+      const tempHeight = node._tempHeight ?? 15;
+      node.size[1] = Math.max(tempHeight, computed[1]);
+
+      node.setDirtyCanvas(true, true);
+    } else {
+      // Original LoraLoader code
+      const node = LiteGraph.createNode("LoraLoader");
+      node.pos = [x, y];
+
+      // Set node title
+      node.title = `Lora - ${loraData.name}`;
+
+      // Get recommended weight, default to 1 if not present
+      const weight = loraData.reco_weight ?? 1;
+
+      debug.log("Set filename to", loraData.filename);
+
+      // Set widget values
+      for (const widget of node.widgets) {
+        if (widget.name === "lora_name") {
+          widget.value = this.loraPathCalc(loraData);
+        } else if (widget.name === "strength_model") {
+          widget.value = weight;
+        } else if (widget.name === "strength_clip") {
+          widget.value = weight;
         }
-        
-        // Ensure the canvas is updated
-        app.graph.setDirtyCanvas(true, true);
+      }
+
+      debug.log("Set filename to", loraData.filename);
+
+      // Add the node to the graph
+      app.graph.add(node);
     }
 
-    updateLoraNode(node, loraData) {
+    // Ensure the canvas is updated
+    app.graph.setDirtyCanvas(true, true);
+  }
 
-        // name hack
-        const fullPath = loraData.path || "";
-        const filename = fullPath.substring(fullPath.lastIndexOf('\\') + 1);
+  updateLoraNode(node, loraData) {
+    // name hack
+    const fullPath = loraData.path || "";
+    const filename = fullPath.substring(fullPath.lastIndexOf("\\") + 1);
 
-        // Handle different node types
-        if (node.type === "LoraLoader") {
-            // Update the node title
-            node.title = `Lora - ${loraData.name}`;
-            
-            // Get recommended weight, default to 1 if not present
-            const weight = loraData.reco_weight ?? 1;
+    // Handle different node types
+    if (node.type === "LoraLoader") {
+      // Update the node title
+      node.title = `Lora - ${loraData.name}`;
 
-            // Update widget values
-            for (const widget of node.widgets) {
-                if (widget.name === "lora_name") {
-                    widget.value = `${loraData.subdir}${loraData.subdir ? '\\' : ''}${filename}`;
-                } else if (widget.name === "strength_model") {
-                    widget.value = weight;
-                } else if (widget.name === "strength_clip") {
-                    widget.value = weight;
-                }
-            }
+      // Get recommended weight, default to 1 if not present
+      const weight = loraData.reco_weight ?? 1;
 
-        } else if (node.type === "Power Lora Loader (rgthree)") {
-            debug.log("Starting update with data:", loraData);
-        
-            const widget = node.addNewLoraWidget();
-            debug.log("Created widget:", widget);
-    
-            const weight = loraData.reco_weight ?? 1;
-            const loraPath = `${loraData.subdir}${loraData.subdir ? '\\' : ''}${filename}`;
-            
-            widget.value = {
-                on: true,
-                lora: loraPath,
-                strength: weight,
-                strengthTwo: null
-            };
-    
-            widget.loraInfo = {
-                file: filename,
-                path: loraPath,
-                images: []
-            };
-    
-            // Handle node resizing
-            const computed = node.computeSize();
-            const tempHeight = node._tempHeight ?? 15;
-            node.size[1] = Math.max(tempHeight, computed[1]);
-            
-            node.setDirtyCanvas(true, true);
+      // Update widget values
+      for (const widget of node.widgets) {
+        if (widget.name === "lora_name") {
+          widget.value = this.loraPathCalcUpdate(loraData);
+        } else if (widget.name === "strength_model") {
+          widget.value = weight;
+        } else if (widget.name === "strength_clip") {
+          widget.value = weight;
         }
-        // Ensure the canvas is updated
-        app.graph.setDirtyCanvas(true, true);
+      }
+    } else if (node.type === "Power Lora Loader (rgthree)") {
+      debug.log("Starting update with data:", loraData);
+
+      const widget = node.addNewLoraWidget();
+      debug.log("Created widget:", widget);
+
+      const weight = loraData.reco_weight ?? 1;
+      const loraPath = this.loraPathCalcUpdate(loraData);
+
+      widget.value = {
+        on: true,
+        lora: loraPath,
+        strength: weight,
+        strengthTwo: null,
+      };
+
+      widget.loraInfo = {
+        file: filename,
+        path: loraPath,
+        images: [],
+      };
+
+      // Handle node resizing
+      const computed = node.computeSize();
+      const tempHeight = node._tempHeight ?? 15;
+      node.size[1] = Math.max(tempHeight, computed[1]);
+
+      node.setDirtyCanvas(true, true);
     }
+    // Ensure the canvas is updated
+    app.graph.setDirtyCanvas(true, true);
+  }
 
     showLoraInfo(lora, iconElement) {
         // Check if a popup already exists and remove it
         if (this.currentPopup) {
             this.currentPopup.remove();
         }
-    
+
         // Create the popup container
-        const popup = $el("div.model-info-popup", { 
+        const popup = $el("div.model-info-popup", {
             className: "model-info-popup",
             onmousedown: (e) => {
                 // Store the initial mouse down target
@@ -2529,7 +2538,7 @@ class LoraSidebar {
                 popup.dataset.mouseDownTarget = '';
             }
         });
-    
+
         // Create the close button
         const closeButton = $el("button", {
             className: "close-button",
@@ -2540,7 +2549,7 @@ class LoraSidebar {
                 this.currentPopup = null;
             }
         });
-    
+
         // Create the content container
         const contentContainer = $el("div.popup-content");
 
@@ -2557,7 +2566,7 @@ class LoraSidebar {
                 if (img) {
                     e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2);
                 }
-        
+
                 // Let your existing handlers take care of everything else
                 this.handleDragStart(e);
             }
@@ -2584,8 +2593,8 @@ class LoraSidebar {
                 if (mediaItems.length > 0) {
                     const item = mediaItems[currentIndex];
                     const isVideo = item.type === 'video';
-                    
-                    const mediaElement = isVideo ? 
+
+                    const mediaElement = isVideo ?
                         $el("video", {
                             src: item.url,
                             controls: true,
@@ -2617,16 +2626,16 @@ class LoraSidebar {
                                     e.stopPropagation();
                                     const item = mediaItems[currentIndex];
                                     const promptInfo = item?.prompt || null;
-                                    
+
                                     if (!promptInfo) {
                                         this.showToast("warn", "No Info", "No generation info available for this image");
                                         return;
                                     }
-                                    
+
                                     // Remove any existing info popup
                                     const existingPopup = document.querySelector('.image-info-popup');
                                     if (existingPopup) existingPopup.remove();
-                                    
+
                                     // Create new popup
                                     const infoPopup = $el("div.image-info-popup", {
                                         onclick: (e) => e.stopPropagation()
@@ -2635,14 +2644,14 @@ class LoraSidebar {
                                             textContent: promptInfo
                                         })
                                     ]);
-                                    
+
                                     const button = e.currentTarget;
                                     const rect = button.getBoundingClientRect();
-                                    
+
                                     infoPopup.style.position = 'absolute';
                                     infoPopup.style.left = `${rect.right + 10}px`;
                                     infoPopup.style.top = `${rect.top}px`;
-                                    
+
                                     // Ensure popup stays within viewport
                                     setTimeout(() => {
                                         const popupRect = infoPopup.getBoundingClientRect();
@@ -2653,9 +2662,9 @@ class LoraSidebar {
                                             infoPopup.style.top = `${window.innerHeight - popupRect.height - 10}px`;
                                         }
                                     }, 0);
-                                    
+
                                     document.body.appendChild(infoPopup);
-                                    
+
                                     // Close on outside click
                                     const closePopup = (e) => {
                                         if (!infoPopup.contains(e.target) && !button.contains(e.target)) {
@@ -2663,7 +2672,7 @@ class LoraSidebar {
                                             document.removeEventListener('click', closePopup);
                                         }
                                     };
-                                    
+
                                     setTimeout(() => {
                                         document.addEventListener('click', closePopup);
                                     }, 0);
@@ -2677,12 +2686,12 @@ class LoraSidebar {
                                     e.stopPropagation();
                                     const item = mediaItems[currentIndex];
                                     const promptInfo = item?.prompt || null;
-                                    
+
                                     if (!promptInfo) {
                                         this.showToast("warn", "No Info", "No generation info available to copy");
                                         return;
                                     }
-                                    
+
                                     navigator.clipboard.writeText(promptInfo).then(() => {
                                         this.showToast("success", "Copied", "Generation info copied to clipboard");
                                     }).catch(err => {
@@ -2709,7 +2718,7 @@ class LoraSidebar {
                                                 url: item.url
                                             })
                                         });
-                                        
+
                                         if (response.ok) {
                                             // Create new element with cache buster
                                             const newLoraElement = this.createLoraElement(lora, true);
@@ -2734,7 +2743,7 @@ class LoraSidebar {
                                 onclick: (e) => {
                                     e.stopPropagation();
                                     let currentIndex = mediaItems.indexOf(item);
-                            
+
                                     const createPopupContent = (index) => {
                                         const fullSizeUrl = mediaItems[index].url.replace(/\/width=\d+\//, '/');
                                         const promptInfo = mediaItems[index]?.prompt;
@@ -2757,7 +2766,7 @@ class LoraSidebar {
                                                                     url: mediaItems[currentIndex].url
                                                                 })
                                                             });
-                                                            
+
                                                             if (response.ok) {
                                                                 const newLoraElement = this.createLoraElement(lora, true);
                                                                 const existingLoraContainer = document.querySelector(`.lora-item img[src*="${encodeURIComponent(lora.id)}"]`)?.closest('.lora-item');
@@ -2842,7 +2851,7 @@ class LoraSidebar {
                                         }
                                     }, [imageContainer]);
                                     imageContainer.replaceChildren(...createPopupContent(currentIndex));
-                                    
+
                                     document.body.appendChild(popup);
 
                                     // Close when clicking outside or pressing escape
@@ -2915,8 +2924,8 @@ class LoraSidebar {
             if (existingWordsContainer && updatedLora.trained_words?.length > 0) {
                 existingWordsContainer.replaceWith($el("div.trained-words", [
                     $el("h4", { textContent: "Trained Words:" }),
-                    $el("div.word-pills", updatedLora.trained_words.map(word => 
-                        $el("span.word-pill", { 
+                    $el("div.word-pills", updatedLora.trained_words.map(word =>
+                        $el("span.word-pill", {
                             textContent: word,
                             onclick: () => this.copyToClipboard(word)
                         })
@@ -2928,14 +2937,14 @@ class LoraSidebar {
                 ]));
             }
         };
-        
+
         const updateTags = (updatedLora) => {
             const existingTagsContainer = contentContainer.querySelector('.tags');
             if (existingTagsContainer && updatedLora.tags?.length > 0) {
                 existingTagsContainer.replaceWith($el("div.tags", [
                     $el("h4", { textContent: "Tags:" }),
-                    $el("div.word-pills", updatedLora.tags.map(tag => 
-                        $el("span.word-pill", { 
+                    $el("div.word-pills", updatedLora.tags.map(tag =>
+                        $el("span.word-pill", {
                             textContent: tag,
                             onclick: () => this.copyToClipboard(tag)
                         })
@@ -2951,7 +2960,7 @@ class LoraSidebar {
                 baseModel: lora.baseModel,
                 versionId: lora.versionId
             });
-        
+
             if (!lora.images || lora.images.length === 0) {
                 // Only fetch for non-custom LoRAs that have a versionId
                 if (lora.baseModel !== 'custom' && lora.versionId) {
@@ -2960,7 +2969,7 @@ class LoraSidebar {
                         const response = await fetch(`/lora_sidebar/refresh/${lora.versionId}`, {
                             method: 'POST'
                         });
-                        
+
                         debug.log("Response received:", response.status);
                         if (response.ok) {
                             const result = await response.json();
@@ -2995,9 +3004,9 @@ class LoraSidebar {
                 marginBottom: "3px"
             }
         });
-        
+
         const leftSection = $el("div.left-section");
-        
+
         if (lora.modelId) {
             const civitAiLink = $el("a", {
                 href: `https://civitai.com/models/${lora.modelId}`,
@@ -3007,7 +3016,7 @@ class LoraSidebar {
             });
             leftSection.appendChild(civitAiLink);
         }
-        
+
         // Create favorite toggle
         const favoriteToggle = $el("i", {
             className: `favorite-toggle pi ${lora.favorite ? 'pi-star-fill' : 'pi-star'}`,
@@ -3062,7 +3071,7 @@ class LoraSidebar {
             // Position popup
             document.body.appendChild(popup);
             const rect = popup.getBoundingClientRect();
-            
+
             // Calculate position
             let left = event.clientX + 10;
             let top = event.clientY + 10;
@@ -3106,20 +3115,20 @@ class LoraSidebar {
         const createWeightEditor = (lora, contentContainer) => {
             let weight = lora.reco_weight || 1;
             let isEditing = false;
-        
+
             const createWeightDisplay = () => {
                 const container = $el("div.weight-container", [
                     $el("h4", { textContent: "Recommended Weight:" })
                 ]);
-        
+
                 const displayContainer = $el("div.weight-display");
-                
+
                 const updateDisplay = () => {
                     // Remove all child elements properly
                     while (displayContainer.firstChild) {
                         displayContainer.removeChild(displayContainer.firstChild);
                     }
-                    
+
                     if (isEditing) {
                         // Show input and save icon
                         const input = $el("input.weight-input", {
@@ -3140,17 +3149,17 @@ class LoraSidebar {
                             },
                             onclick: (e) => e.stopPropagation() // Prevent event bubbling
                         });
-        
+
                         const saveIcon = $el("i.weight-save-icon.pi.pi-check", {
                             onclick: (e) => {
                                 e.stopPropagation(); // Prevent event bubbling
                                 handleSave(input.value);
                             }
                         });
-        
+
                         displayContainer.appendChild(input);
                         displayContainer.appendChild(saveIcon);
-                        
+
                         // Focus the input
                         setTimeout(() => input.focus(), 0);
                     } else {
@@ -3158,7 +3167,7 @@ class LoraSidebar {
                         const valueSpan = $el("span.weight-value", {
                             textContent: weight
                         });
-        
+
                         const editIcon = $el("i.weight-edit-icon.pi.pi-pen-to-square", {
                             onclick: (e) => {
                                 e.stopPropagation(); // Prevent event bubbling
@@ -3166,19 +3175,19 @@ class LoraSidebar {
                                 updateDisplay();
                             }
                         });
-        
+
                         displayContainer.appendChild(valueSpan);
                         displayContainer.appendChild(editIcon);
                     }
                 };
-        
+
                 const handleSave = async (newValue) => {
                     const numValue = parseFloat(newValue);
                     if (isNaN(numValue) || numValue < -10 || numValue > 10) {
                         app.ui.dialog.show("Error", "Please enter a valid number between -10 and 10");
                         return;
                     }
-                
+
                     try {
                         const response = await api.fetchApi('/lora_sidebar/update_info', {
                             method: 'POST',
@@ -3189,16 +3198,16 @@ class LoraSidebar {
                                 value: numValue
                             })
                         });
-                
+
                         const result = await response.json();
-                        
+
                         if (result.status === 'success') {
                             // Update local state
                             lora.reco_weight = numValue;
                             weight = numValue;
                             isEditing = false;
                             updateDisplay();
-                            
+
                             // Also update user_edits in local state if it's returned
                             if (result.user_edits) {
                                 lora.user_edits = result.user_edits;
@@ -3210,19 +3219,19 @@ class LoraSidebar {
                     } catch (error) {
                         console.error("Error updating weight:", error);
                         this.showToast("error", "Update Failed", "Failed to update recommended weight");
-                        
+
                         // Revert to previous value in case of error
                         updateDisplay();
                     }
                 };
-        
+
                 container.appendChild(displayContainer);
                 updateDisplay();
                 return container;
             };
-        
+
             const weightDisplay = createWeightDisplay();
-            
+
             // Insert weight display after name container but before trained words
             const trainedWords = contentContainer.querySelector('.trained-words');
             if (trainedWords) {
@@ -3235,18 +3244,18 @@ class LoraSidebar {
         const createVersionIdEditor = (lora, contentContainer) => {
             // Only hide editor if both modelId and versionId are not null
             if (lora.modelId !== null && lora.versionId !== null) return;
-        
+
             let isEditing = false;
-        
+
             const container = $el("div.version-id-container", [
                 $el("h4", { textContent: "Version ID:" })
             ]);
-        
+
             const displayContainer = $el("div.version-display");
-        
+
             const updateDisplay = () => {
                 displayContainer.innerHTML = '';
-            
+
                 if (isEditing) {
                     const input = $el("input.version-input", {
                         type: "number",
@@ -3262,14 +3271,14 @@ class LoraSidebar {
                         },
                         onclick: (e) => e.stopPropagation()
                     });
-            
+
                     const saveIcon = $el("i.version-save-icon.pi.pi-check", {
                         onclick: (e) => {
                             e.stopPropagation();
                             handleSave(input.value);
                         }
                     });
-            
+
                     displayContainer.appendChild(input);
                     displayContainer.appendChild(saveIcon);
                     setTimeout(() => input.focus(), 0);
@@ -3278,7 +3287,7 @@ class LoraSidebar {
                         // Show the actual versionId if it exists, otherwise "Custom"
                         textContent: lora.versionId || "Custom"
                     });
-            
+
                     const editIcon = $el("i.version-edit-icon.pi.pi-pen-to-square", {
                         onclick: (e) => {
                             e.stopPropagation();
@@ -3286,19 +3295,19 @@ class LoraSidebar {
                             updateDisplay();
                         }
                     });
-            
+
                     displayContainer.appendChild(valueSpan);
                     displayContainer.appendChild(editIcon);
                 }
             };
-       
+
             const handleSave = async (value) => {
                 const versionId = parseInt(value);
                 if (isNaN(versionId) || versionId <= 0) {
                     app.ui.dialog.show("Error", "Please enter a valid Version ID");
                     return;
                 }
-        
+
                 try {
                     const response = await api.fetchApi('/lora_sidebar/update_info', {
                         method: 'POST',
@@ -3309,16 +3318,16 @@ class LoraSidebar {
                             value: versionId
                         })
                     });
-        
+
                     const result = await response.json();
                     if (result.status === 'success') {
                         // Update local state
                         lora.versionId = versionId;
                         if (result.modelId) lora.modelId = result.modelId;
-                        
+
                         // Remove the editor since we now have a valid versionId
                         container.remove();
-                        
+
                         // Refresh the LoRA info to fetch new data
                         this.refreshLora(lora);
                     } else {
@@ -3329,7 +3338,7 @@ class LoraSidebar {
                     this.showToast("error", "Update Failed", "Failed to update Version ID");
                 }
             };
-        
+
             container.appendChild(displayContainer);
             updateDisplay();
             return container;
@@ -3347,19 +3356,19 @@ class LoraSidebar {
                 position: 'relative'  // For positioning the save button
             }
         });
-        
+
         // Create editable name element
-        const nameElement = $el("h3", { 
-            textContent: lora.name, 
+        const nameElement = $el("h3", {
+            textContent: lora.name,
             className: "lora-name",
             style: {
                 cursor: 'default'
             },
             ondblclick: async (e) => {
                 if (e.target !== nameElement) return;
-        
+
                 const originalName = lora.name;
-                
+
                 // Create container for input and save button
                 const editContainer = $el("div", {
                     style: {
@@ -3368,7 +3377,7 @@ class LoraSidebar {
                     },
                     onclick: (e) => e.stopPropagation()  // Prevent clicks from reaching the lora info popup
                 });
-        
+
                 const input = $el("input", {
                     type: "text",
                     value: originalName,
@@ -3397,7 +3406,7 @@ class LoraSidebar {
                     onmousedown: (e) => e.stopPropagation(),
                     onmouseup: (e) => e.stopPropagation()
                 });
-        
+
                 // Create save button
                 const saveButton = $el("div", {
                     style: {
@@ -3425,7 +3434,7 @@ class LoraSidebar {
                         }
                     })
                 ]);
-        
+
                 const saveName = async (newValue) => {
                     const newName = newValue.trim();
                     if (newName && newName !== originalName) {
@@ -3439,7 +3448,7 @@ class LoraSidebar {
                                     value: newName
                                 })
                             });
-        
+
                             if (response.ok) {
                                 lora.name = newName;
                                 nameElement.textContent = newName;
@@ -3456,22 +3465,22 @@ class LoraSidebar {
                         nameElement.textContent = originalName;
                     }
                 };
-        
+
                 // Clear the name element and add our container
                 nameElement.textContent = '';
                 editContainer.appendChild(input);
                 editContainer.appendChild(saveButton);
                 nameElement.appendChild(editContainer);
-                
+
                 // Focus and select the input
                 input.focus();
                 input.scrollLeft = 0;
                 input.setSelectionRange(0, 0);
             }
         });
-        
+
         nameRow.appendChild(nameElement);
-        
+
         // Add description icon separately
         if (lora.model_desc) {
             const descriptionIcon = $el("i.description-icon.pi.pi-info-circle", {
@@ -3482,7 +3491,7 @@ class LoraSidebar {
             });
             nameRow.appendChild(descriptionIcon);
         }
-        
+
         nameContainer.appendChild(nameRow);
 
         // Add label pills container
@@ -3497,7 +3506,7 @@ class LoraSidebar {
         if (lora.type) {
             labelPills.appendChild(this.createEditablePill('type', lora.type, lora));
         }
-        
+
         // Only append the labels container if we have pills to show
         if (labelPills.children.length > 0) {
             nameContainer.appendChild(labelPills);
@@ -3509,18 +3518,18 @@ class LoraSidebar {
         // Add version information in a version container
         if (lora.versionName || lora.version_desc) {
             const versionContainer = $el("div.version-info");
-    
+
             if (lora.versionName) {
-                const versionElement = $el("p", { 
-                    textContent: `Version: ${lora.versionName}`, 
-                    className: "version-name" 
+                const versionElement = $el("p", {
+                    textContent: `Version: ${lora.versionName}`,
+                    className: "version-name"
                 });
                 versionContainer.appendChild(versionElement);
             }
-            
+
             if (lora.version_desc) {
                 // Create a container for the version description
-                const versionDescContainer = $el("div", { 
+                const versionDescContainer = $el("div", {
                     className: "version-desc-container",
                     style: {
                         maxHeight: '200px',  // Limit initial height
@@ -3528,9 +3537,9 @@ class LoraSidebar {
                         marginTop: '8px'     // Add some spacing
                     }
                 });
-        
+
                 // Create the description element that will hold the HTML content
-                const versionDescElement = $el("div", { 
+                const versionDescElement = $el("div", {
                     className: "version-desc",
                     innerHTML: this.sanitizeHTML(lora.version_desc), // Sanitize and set HTML content
                     style: {
@@ -3539,10 +3548,10 @@ class LoraSidebar {
                         lineHeight: '1.4'
                     }
                 });
-        
+
                 // Add expand/collapse functionality if content is long
                 versionDescContainer.appendChild(versionDescElement);
-                
+
                 // After adding to DOM, check if we need expand/collapse
                 setTimeout(() => {
                     if (versionDescElement.scrollHeight > 200) {
@@ -3569,10 +3578,10 @@ class LoraSidebar {
                         versionContainer.appendChild(expandButton);
                     }
                 }, 0);
-                
+
                 versionContainer.appendChild(versionDescContainer);
             }
-            
+
             nameContainer.appendChild(versionContainer);
         }
 
@@ -3580,9 +3589,9 @@ class LoraSidebar {
 
         // Add subdir information
         if (lora.subdir) {
-            const subdirElement = $el("p", { 
-                textContent: `Subdirectory: ${lora.subdir}`, 
-                className: "lora-subdir" 
+            const subdirElement = $el("p", {
+                textContent: `Subdirectory: ${lora.subdir}`,
+                className: "lora-subdir"
             });
             contentContainer.appendChild(subdirElement);
         }
@@ -3605,18 +3614,18 @@ class LoraSidebar {
 
         // Update initial media content
         updateMediaContent(lora);
-        
+
         // Fetch images if needed
-        fetchImagesIfNeeded();        
+        fetchImagesIfNeeded();
         // Append the close button and content container to popup
         popup.appendChild(closeButton);
         popup.appendChild(contentContainer);
 
         // Add NSFW warning if applicable
         if (this.isNSFW(lora)) {
-            const nsfwWarning = $el("p.nsfw-warning", { 
-                textContent: lora.nsfw 
-                    ? "This LoRA contains NSFW content" 
+            const nsfwWarning = $el("p.nsfw-warning", {
+                textContent: lora.nsfw
+                    ? "This LoRA contains NSFW content"
                     : `This LoRA has an NSFW level of ${lora.nsfwLevel}`,
                 style: {
                     color: "#ff4444",
@@ -3637,7 +3646,7 @@ class LoraSidebar {
                 onclick: async (e) => {
                     e.stopPropagation();
                     await this.refreshLora(lora);
-                    
+
                     // Find the updated lora data
                     const updatedLora = this.loraData.find(l => l.id === lora.id);
                     if (updatedLora) {
@@ -3651,7 +3660,7 @@ class LoraSidebar {
                 }
             });
             buttonRow.appendChild(refreshButton);
-        
+
             // NSFW Toggle Button
             const nsfwButton = $el("button", {
                 className: `info-button nsfw-toggle nsfw-${lora.nsfw ? 'true' : 'false'}`,
@@ -3669,9 +3678,9 @@ class LoraSidebar {
                                 value: !lora.nsfw
                             })
                         });
-            
+
                         const result = await response.json();
-                        
+
                         if (result.status === 'success' || result.status === 'warning') {
                             // Update flag in the passed lora object
                             lora.nsfw = !lora.nsfw;
@@ -3688,7 +3697,7 @@ class LoraSidebar {
 
                             nsfwButton.innerHTML = `<i class="pi ${lora.nsfw ? 'pi-flag-fill' : 'pi-flag'}"></i>`;
                             nsfwButton.className = `info-button nsfw-toggle nsfw-${lora.nsfw ? 'true' : 'false'}`;
-                            
+
                             // Store user edits if provided
                             if (result.user_edits) {
                                 lora.user_edits = result.user_edits;
@@ -3703,7 +3712,7 @@ class LoraSidebar {
                             const existingLoraContainer = document.querySelector(
                                 `.lora-item img[src*="${encodeURIComponent(lora.id)}"]`
                             )?.closest('.lora-item');
-                            
+
                             if (existingLoraContainer) {
                                 const newLoraElement = this.createLoraElement(lora, true);
                                 if (existingLoraContainer.style.width) {
@@ -3722,7 +3731,7 @@ class LoraSidebar {
                                 newPopup.offsetHeight;
                                 newPopup.classList.add('show');
                             }
-                            
+
                             this.showToast("success", "NSFW Flag Updated", `NSFW flag set to ${lora.nsfw}`);
                         } else {
                             throw new Error(result.message || 'Failed to update NSFW flag');
@@ -3734,7 +3743,7 @@ class LoraSidebar {
                 }
             });
             buttonRow.appendChild(nsfwButton);
-        
+
             // Upload Image Button
             const uploadButton = $el("button", {
                 className: "info-button icon-button",
@@ -3770,17 +3779,17 @@ class LoraSidebar {
                 }
             });
             buttonRow.appendChild(deleteButton);
-        
+
             return buttonRow;
         };
-        
+
         // Add the button row to the content container (no await needed)
         contentContainer.appendChild(createButtonRow());
-    
+
         // Position the popup
         const sidebar = document.querySelector('.lora-sidebar');
         const sidebarRect = sidebar.getBoundingClientRect();
-        
+
         popup.style.position = 'fixed';
         popup.style.left = `${sidebarRect.left + 10}px`;  // 10px padding from left
         popup.style.top = '50%';
@@ -3788,13 +3797,13 @@ class LoraSidebar {
         popup.style.maxHeight = '80vh';
         popup.style.overflowY = 'auto';
         popup.style.width = `${sidebarRect.width - 20}px`;  // 20px total padding
-    
+
         // Append the popup to the body
         document.body.appendChild(popup);
 
         // Add show class to trigger transition
         setTimeout(() => popup.classList.add('show'), 0);
-    
+
         // Close the popup when clicking outside (if persistence is disabled)
         const closePopup = (event) => {
             if (!this.infoPersist && !popup.contains(event.target) && event.target !== iconElement) {
@@ -3834,7 +3843,7 @@ class LoraSidebar {
         const isModel = pillType === 'baseModel';
         const field = isModel ? 'baseModel' : 'type';
         let isEditing = false;
-    
+
         // Get autocomplete suggestions from existing data
         const getAutocompleteSuggestions = (input) => {
             const searchTerm = input.toLowerCase();
@@ -3846,7 +3855,7 @@ class LoraSidebar {
             return Array.from(existingValues)
                 .filter(val => val.toLowerCase().includes(searchTerm));
         };
-    
+
         const pill = $el("span.label-pill", {
             className: `label-pill ${isModel ? 'model' : 'type'}`,
             style: {
@@ -3872,13 +3881,13 @@ class LoraSidebar {
                 }
             })
         ]);
-    
+
         const showEditInput = () => {
             // Clear the pill content
             while (pill.firstChild) {
                 pill.removeChild(pill.firstChild);
             }
-    
+
             // Create autocomplete container
             const autocompleteContainer = $el("div.autocomplete-container", {
                 style: {
@@ -3895,7 +3904,7 @@ class LoraSidebar {
                     display: 'none'
                 }
             });
-    
+
             const input = $el("input", {
                 type: "text",
                 value: value,
@@ -3929,7 +3938,7 @@ class LoraSidebar {
                                     value: e.target.value.trim()
                                 })
                             });
-    
+
                             if (response.ok) {
                                 value = e.target.value.trim();
                                 lora[field] = value;
@@ -3944,7 +3953,7 @@ class LoraSidebar {
                     }
                 }
             });
-    
+
             const saveIcon = $el("i.weight-save-icon.pi.pi-check", {
                 style: {
                     cursor: 'pointer',
@@ -3954,7 +3963,7 @@ class LoraSidebar {
                     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
                 }
             });
-    
+
             const updateAutocompleteSuggestions = (suggestions) => {
                 autocompleteContainer.innerHTML = '';
                 if (suggestions.length > 0) {
@@ -3980,7 +3989,7 @@ class LoraSidebar {
                     autocompleteContainer.style.display = 'none';
                 }
             };
-    
+
             const restorePill = () => {
                 while (pill.firstChild) {
                     pill.removeChild(pill.firstChild);
@@ -4001,14 +4010,14 @@ class LoraSidebar {
                     }
                 }));
             };
-    
+
             pill.appendChild(input);
             pill.appendChild(saveIcon);
             pill.appendChild(autocompleteContainer);
-            
+
             // Focus input after appending
             setTimeout(() => input.focus(), 0);
-    
+
             // Click outside to close autocomplete
             document.addEventListener('click', (e) => {
                 if (!pill.contains(e.target)) {
@@ -4016,7 +4025,7 @@ class LoraSidebar {
                 }
             });
         };
-    
+
         return pill;
     }
 
@@ -4025,12 +4034,12 @@ class LoraSidebar {
         const title = isTrainedWords ? "Trained Words:" : "Tags:";
         const items = lora[type] || [];
         let isEditing = false;
-    
+
         const updateSection = (newItems) => {
             while (container.firstChild) {
                 container.removeChild(container.firstChild);
             }
-    
+
             // Create header with edit/save button
             const header = $el("div.section-header", {
                 style: {
@@ -4055,7 +4064,7 @@ class LoraSidebar {
                 })
             ]);
             container.appendChild(header);
-    
+
             if (isEditing) {
                 // Edit mode
                 const editContainer = $el("div.edit-container", {
@@ -4063,7 +4072,7 @@ class LoraSidebar {
                         marginBottom: '10px'
                     }
                 });
-    
+
                 // Input field with add button
                 const inputGroup = $el("div.input-group", {
                     style: {
@@ -4095,7 +4104,7 @@ class LoraSidebar {
                                                 value: [...items, newItem]
                                             })
                                         });
-    
+
                                         if (response.ok) {
                                             items.push(newItem);
                                             e.target.value = '';
@@ -4132,7 +4141,7 @@ class LoraSidebar {
                     const input = inputGroup.querySelector('input');
                     if (input) input.focus();
                 }, 0);
-    
+
                 // Current items with delete buttons
                 const itemsContainer = $el("div.word-pills", {
                     style: {
@@ -4141,7 +4150,7 @@ class LoraSidebar {
                         gap: '5px'
                     }
                 });
-    
+
                 items.forEach(item => {
                     const pillContainer = $el("div.pill-container", {
                         style: {
@@ -4150,7 +4159,7 @@ class LoraSidebar {
                             gap: '5px'
                         }
                     }, [
-                        $el("span.word-pill", { 
+                        $el("span.word-pill", {
                             textContent: item,
                             onclick: () => this.copyToClipboard(item)
                         }),
@@ -4172,7 +4181,7 @@ class LoraSidebar {
                                             value: items.filter(i => i !== item)
                                         })
                                     });
-    
+
                                     if (response.ok) {
                                         items.splice(items.indexOf(item), 1);
                                         updateSection(items);
@@ -4187,15 +4196,15 @@ class LoraSidebar {
                     ]);
                     itemsContainer.appendChild(pillContainer);
                 });
-    
+
                 editContainer.appendChild(itemsContainer);
                 container.appendChild(editContainer);
             } else {
                 // Display mode
-                const itemsContainer = $el("div.word-pills", 
-                    items.length > 0 
-                        ? items.map(item => 
-                            $el("span.word-pill", { 
+                const itemsContainer = $el("div.word-pills",
+                    items.length > 0
+                        ? items.map(item =>
+                            $el("span.word-pill", {
                                 textContent: item,
                                 onclick: () => this.copyToClipboard(item)
                             })
@@ -4214,7 +4223,7 @@ class LoraSidebar {
                 }
             }
         };
-    
+
         updateSection(items);
         return container;
     }
@@ -4227,9 +4236,9 @@ class LoraSidebar {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to get latest generated image');
             }
-            
+
             const imageInfo = await response.json();
-            
+
             // Use the existing upload endpoint with the URL
             const uploadResponse = await fetch('/lora_sidebar/upload_images', {
                 method: 'POST',
@@ -4241,20 +4250,20 @@ class LoraSidebar {
                     urls: [imageInfo.url]  // Using the existing URL format
                 })
             });
-    
+
             const result = await uploadResponse.json();
-            
+
             if (result.status === 'success') {
                 // Update the lora object with new images
                 lora.images = lora.images || [];
                 lora.images.push(...result.images);
-                
+
                 // Refresh the info popup if it's open
                 const infoPopup = document.querySelector('.model-info-popup');
                 if (infoPopup) {
                     this.showLoraInfo(lora, null);
                 }
-                
+
                 this.showToast("success", "Image Added", "Last generated image added successfully");
                 return true;
             } else {
@@ -4276,7 +4285,7 @@ class LoraSidebar {
             const filename = fullPath.substring(fullPath.lastIndexOf('\\') + 1);
             const response = await api.fetchApi(`/lora_sidebar/file_details/${lora.id}`);
             const result = await response.json();
-    
+
             // Helper function to create a label with buttons
             const createLabelWithCopy = (labelText, contentToCopy, canOpenFolder = false) => {
                 return $el("p.file-location-label", [
@@ -4316,17 +4325,17 @@ class LoraSidebar {
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ path: contentToCopy })
                                     });
-                                    
+
                                     if (!response.ok) {
                                         // Fallback to copy if opening fails
                                         this.copyToClipboard(contentToCopy);
-                                        this.showToast("info", "Copied Instead", 
+                                        this.showToast("info", "Copied Instead",
                                             "Couldn't open folder, path copied to clipboard instead.");
                                     }
                                 } catch (error) {
                                     // Fallback to copy on error
                                     this.copyToClipboard(contentToCopy);
-                                    this.showToast("info", "Copied Instead", 
+                                    this.showToast("info", "Copied Instead",
                                         "Couldn't open folder, path copied to clipboard instead.");
                                 }
                             }
@@ -4334,7 +4343,7 @@ class LoraSidebar {
                     ].filter(Boolean))  // Remove null items (when canOpenFolder is false)
                 ]);
             };
-        
+
             const detailsPopup = $el("div.confirm-delete-popup", {
                 onclick: (e) => e.stopPropagation()
             }, [
@@ -4350,21 +4359,21 @@ class LoraSidebar {
                     className: "file-location",
                     textContent: directory || "Path not available"
                 }),
-                
+
                 // Source File
                 createLabelWithCopy("Source File:", filename),
                 $el("p", {
                     className: "file-location",
                     textContent: filename || "Filename not available"
                 }),
-                
+
                 // Managed Location
                 createLabelWithCopy("Managed Location:", result.managed_dir, true),
                 $el("p", {
                     className: "file-location",
                     textContent: result.managed_dir || "Path not available"
                 }),
-        
+
                 $el("div.confirm-buttons", [
                     $el("button", {
                         textContent: "Close",
@@ -4375,7 +4384,7 @@ class LoraSidebar {
                     })
                 ])
             ]);
-        
+
             document.body.appendChild(detailsPopup);
 
             const handleOutsideClick = (e) => {
@@ -4448,7 +4457,7 @@ class LoraSidebar {
     createUploadPopup(lora) {
         // Remove any existing popups
         this.removePreviousPopups();
-    
+
         // Create file input element (hidden)
         const fileInput = $el("input", {
             type: "file",
@@ -4465,7 +4474,7 @@ class LoraSidebar {
                 }
             }
         });
-    
+
         // Create text input for file path
         const filePathInput = $el("input", {
             type: "text",
@@ -4481,7 +4490,7 @@ class LoraSidebar {
                 color: "inherit"
             }
         });
-    
+
         // Create the popup
         const popup = $el("div.confirm-delete-popup", {
             onclick: (e) => e.stopPropagation(),
@@ -4490,17 +4499,17 @@ class LoraSidebar {
                 padding: "20px"
             }
         }, [
-            $el("h3", { 
+            $el("h3", {
                 textContent: "Add Images",
-                style: { 
+                style: {
                     marginTop: "0",
                     marginBottom: "15px",
-                    textAlign: "center" 
+                    textAlign: "center"
                 }
             }),
-            $el("p", { 
+            $el("p", {
                 textContent: "Select one or more local images to add to the carousel. You can also paste an image URL.",
-                style: { 
+                style: {
                     marginBottom: "15px",
                     textAlign: "center",
                     color: "#999",
@@ -4541,10 +4550,10 @@ class LoraSidebar {
                         e.stopPropagation();
                         const button = e.target.closest('button');  // Get the button element even if icon was clicked
                         const originalHtml = button.innerHTML;
-                        
+
                         button.disabled = true;
                         button.textContent = "Adding...";
-                        
+
                         try {
                             const success = await this.handleLastGeneratedImage(lora);
                             if (success) {
@@ -4584,17 +4593,17 @@ class LoraSidebar {
                     onclick: async () => {
                         const files = fileInput.files;
                         const inputText = filePathInput.value.trim();
-    
+
                         // Check for URLs
                         if (inputText && !files?.length) {
                             const urls = inputText.split(/[\n,]/).map(url => url.trim()).filter(url => url);
                             const validUrls = urls.filter(url => isValidUrl(url));
-    
+
                             if (validUrls.length === 0) {
                                 showError("Please enter valid image URLs or select local files");
                                 return;
                             }
-    
+
                             try {
                                 const response = await fetch('/lora_sidebar/upload_images', {
                                     method: 'POST',
@@ -4606,9 +4615,9 @@ class LoraSidebar {
                                         urls: validUrls
                                     })
                                 });
-    
+
                                 const result = await response.json();
-                                
+
                                 if (result.status === 'success') {
                                     handleUploadSuccess(result);
                                 } else {
@@ -4622,28 +4631,28 @@ class LoraSidebar {
                             }
                             return;
                         }
-    
+
                         // Handle local files
                         if (!files || files.length === 0) {
                             showError("Please select at least one image or enter valid URLs");
                             return;
                         }
-    
+
                         const formData = new FormData();
                         formData.append('lora_id', lora.id);
-                        
+
                         for (const file of files) {
                             formData.append('files[]', file);
                         }
-    
+
                         try {
                             const response = await fetch('/lora_sidebar/upload_images', {
                                 method: 'POST',
                                 body: formData
                             });
-    
+
                             const result = await response.json();
-                            
+
                             if (result.status === 'success') {
                                 handleUploadSuccess(result);
                             } else {
@@ -4662,12 +4671,12 @@ class LoraSidebar {
                 })
             ])
         ]);
-    
+
         const showError = (message) => {
             // Remove existing error message if any
             const existingError = popup.querySelector('.error-message');
             if (existingError) existingError.remove();
-    
+
             // Add new error message
             const errorMsg = $el("p.error-message", {
                 textContent: message,
@@ -4680,16 +4689,16 @@ class LoraSidebar {
             });
             popup.insertBefore(errorMsg, popup.querySelector('.confirm-buttons'));
         };
-    
+
         const handleUploadSuccess = (result) => {
             lora.images = lora.images || [];
             lora.images.push(...result.images);
-            
+
             const infoPopup = document.querySelector('.model-info-popup');
             if (infoPopup) {
                 this.showLoraInfo(lora, null);
             }
-            
+
             this.showToast("success", "Upload Complete", result.message);
         };
 
@@ -4703,7 +4712,7 @@ class LoraSidebar {
                 document.removeEventListener('click', handleOutsideClick);
             }
         };
-    
+
         document.body.appendChild(popup);
 
         // Small delay to prevent immediate closing
@@ -4786,10 +4795,10 @@ class LoraSidebar {
 
             // Use existing loader!
             await this.loadLoraData(0, this.batchSize);
-            
+
             // Re-render with new sorted data
             this.handleSearch(this.state.searchTerm || '');
-        
+
         } catch (error) {
             console.error("Error refreshing sorted data:", error);
             this.showToast("error", "Sort Failed", "Failed to update sort order. Please try refreshing the page.");
@@ -4815,7 +4824,7 @@ class LoraSidebar {
         this.handleSearch(this.state.searchTerm || '');
         }
     }
-    
+
     updateSavedModelFilter(newVal) {
         this.savedModelFilter = newVal;
         this.modelFilter = newVal;  // Update the current model filter
@@ -4914,7 +4923,7 @@ class LoraSidebar {
         } else {
             this.showToast("warn", "LoRA Smart Info Disabled", 'Automatic LoRA Info & Previews are OFF 😢');
         }
-    } 
+    }
 
 
     ////////
@@ -4926,7 +4935,7 @@ class LoraSidebar {
             // Do nothing if the sidebar hasn't been opened yet
             return;
         }
-        
+
         if (this.isNewSession) {
 
             const {
@@ -4961,7 +4970,7 @@ class LoraSidebar {
             this.loadingOverlay.style.display = "none";
 
         }
-    
+
         this.handleSearch(this.state.searchTerm || '');
     }
 
@@ -5184,13 +5193,13 @@ app.registerExtension({
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ use_old_version: newVal })
                             });
-                            
+
                             // Only show messages if we're enabling the setting
                             if (newVal && !toastShown) {
                                 if (!response.ok) {
                                     throw new Error('Failed to flag LoRAs for Reprocessing');
                                 }
-                                
+
                                 toastShown = true;
                                 app.loraSidebar.showToast(
                                     "info",
@@ -5303,13 +5312,13 @@ app.registerExtension({
                     debug.log("COMFYUI FIX YOUR SHIT - Duplicate onChange call detected, skipping.");
                     return;
                 }
-        
+
                 // Update last processed values
                 lastProcessed.newVal = newVal;
                 lastProcessed.oldVal = oldVal;
-        
+
                 debug.log("Settings onChange called with:", { newVal, oldVal });
-        
+
                 if (app.loraSidebar && oldVal !== undefined) {
                     app.loraSidebar.smartInfo.updateSettings(newVal);
                     app.loraSidebar.updateSmartEnabled(newVal);
